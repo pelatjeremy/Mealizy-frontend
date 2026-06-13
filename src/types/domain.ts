@@ -25,6 +25,14 @@ export type Recipe = {
   ingredients: RecipeIngredient[];
 };
 
+export type RecipeSuggestionGroups = {
+  complete: Recipe[];
+  missing1: Recipe[];
+  missing2: Recipe[];
+  missing3: Recipe[];
+  missingMore: Recipe[];
+};
+
 export type InventoryItem = {
   id: string;
   name: string;

@@ -1,3 +1,5 @@
+import type { RecipeSuggestionGroups } from "@/types/domain";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const TOKEN_KEY = "mealizy_token";
 
@@ -49,4 +51,8 @@ export async function register(data: Record<string, unknown>) {
   });
   setToken(payload.token);
   return payload;
+}
+
+export async function getRecipeSuggestions() {
+  return apiRequest<RecipeSuggestionGroups>("/recipes/suggestions");
 }
