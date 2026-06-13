@@ -29,6 +29,14 @@ function hasRecipes(groups: RecipeSuggestionGroups) {
   return categories.some((category) => groups[category.key].length > 0);
 }
 
+function hasOnlyMissingMore(groups: RecipeSuggestionGroups) {
+  return groups.missingMore.length > 0
+    && groups.complete.length === 0
+    && groups.missing1.length === 0
+    && groups.missing2.length === 0
+    && groups.missing3.length === 0;
+}
+
 function MissingIngredientList({ ingredients }: { ingredients: RecipeIngredient[] }) {
   if (ingredients.length === 0) {
     return <p className="ready-note">Aucun ingredient manquant.</p>;
@@ -117,8 +125,15 @@ export function RecipeBrowser() {
 
   return (
     <section className="suggestion-categories" aria-label={`${recipeCount} recettes suggerees`}>
+      {hasOnlyMissingMore(groups) && (
+        <div className="state-panel">
+          <CircleAlert size={22} />
+          Votre inventaire est trop limite pour proposer des recettes proches. Ajoutez plus d'ingredients ou essayez une recherche plus large.
+        </div>
+      )}
+
       {categories.map((category) => {
-        const recipes = groups[category.key];
+        const recipes = category.key === "missingMore" ? groups[category.key].slice(0, 6) : groups[category.key];
         const Icon = category.icon;
 
         return (
