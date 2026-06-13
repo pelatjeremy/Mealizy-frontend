@@ -575,11 +575,117 @@ input {
 
 .search-bar input,
 .form-panel input,
-.auth-card input {
+.auth-card input,
+.inline-form select {
   width: 100%;
   border: 0;
   outline: 0;
   background: transparent;
+}
+
+.form-panel.wide {
+  max-width: none;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.inline-form select {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.status-note {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.waste-alert {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ffd2bf;
+  border-radius: 8px;
+  background: #fff4ed;
+  color: #b93d16;
+  font-weight: 800;
+}
+
+.editable-list {
+  display: grid;
+  gap: 10px;
+}
+
+.editable-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.editable-list small {
+  display: block;
+  color: var(--muted);
+}
+
+.editable-list button,
+.icon-danger {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.icon-danger {
+  color: var(--red);
+}
+
+.checkbox.checked {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: inset 0 0 0 4px white;
+}
+
+.shopping-list.interactive button.checkbox {
+  padding: 0;
+  cursor: pointer;
+}
+
+.suggestion-columns {
+  display: grid;
+  gap: 16px;
+}
+
+.recipe-catalog.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.live-summary {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) repeat(4, auto);
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+  color: var(--muted);
+}
+
+.live-summary strong {
+  color: var(--green);
 }
 
 .recipe-catalog {

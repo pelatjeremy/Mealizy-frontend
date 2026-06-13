@@ -1,4 +1,5 @@
 import { inventory, recipes, shoppingList } from "./demo-data";
+import { Recipe } from "@/types/domain";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
@@ -22,8 +23,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getDashboardData() {
   try {
-    const [recipeResults] = await Promise.all([request<typeof recipes>("/recipes/search")]);
-    return { inventory, shoppingList, recipes: recipeResults };
+    const [recipeResults] = await Promise.all([request<{ recipes: Recipe[] }>("/recipes/search")]);
+    return { inventory, shoppingList, recipes: recipeResults.recipes };
   } catch {
     return { inventory, shoppingList, recipes };
   }
