@@ -4,6 +4,7 @@ dist
 coverage
 .env
 .env.local
+.env.production
 .DS_Store
 *.log
 .yarn/*

@@ -19,7 +19,7 @@ yarn install
 
 ## Variables d'environnement
 
-Créer un fichier `.env.local` :
+Creer un fichier `.env.local` local. Ne jamais committer ce fichier.
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
@@ -48,7 +48,7 @@ yarn build
 - Liste de courses cochable avec generation backend si l'utilisateur est connecte
 - Mes recettes
 - Profil avec foyer, repas actives, equipements, preferences et allergies
-- Paramètres
+- Parametres
 - Connexion
 - Inscription
 
@@ -61,3 +61,7 @@ Workflow conseille :
 1. Demarrer le backend sur `http://localhost:4000`.
 2. Creer un compte depuis `/register` ou se connecter depuis `/login`.
 3. Utiliser inventaire, profil, planning et liste de courses avec synchronisation API.
+
+## Securite
+
+Les fichiers `.env`, `.env.local` et `.env.production` sont ignores par Git. Ne pas ecrire de cle API, mot de passe ou chaine de connexion dans le code, le README ou GitHub.
