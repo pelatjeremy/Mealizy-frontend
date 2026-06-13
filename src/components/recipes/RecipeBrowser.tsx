@@ -1,69 +1,143 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { Search } from "lucide-react";
-import { apiRequest } from "@/lib/client-api";
-import { recipes as demoRecipes } from "@/lib/demo-data";
-import { Recipe } from "@/types/domain";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, CircleAlert, Loader2, PackageOpen } from "lucide-react";
+import { apiRequest, getRecipeSuggestions, getToken } from "@/lib/client-api";
+import type { Recipe, RecipeIngredient, RecipeSuggestionGroups } from "@/types/domain";
 
-export function RecipeBrowser() {
-  const [recipes, setRecipes] = useState<Recipe[]>(demoRecipes);
-  const [query, setQuery] = useState("");
-  const [isDemo, setIsDemo] = useState(true);
-  const [message, setMessage] = useState("Recettes de demonstration chargees.");
+type ApiInventoryItem = {
+  _id: string;
+};
 
-  async function search(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    const params = query ? `?q=${encodeURIComponent(query)}` : "";
-    const payload = await apiRequest<{ recipes: Recipe[]; isDemo: boolean }>(`/recipes/search${params}`);
-    setRecipes(payload.recipes);
-    setIsDemo(payload.isDemo);
-    setMessage(payload.isDemo ? "Spoonacular absent : donnees de demonstration." : "Recettes chargees depuis l’API.");
+const emptyGroups: RecipeSuggestionGroups = {
+  complete: [],
+  missing1: [],
+  missing2: [],
+  missing3: [],
+  missingMore: []
+};
+
+const categories = [
+  { key: "complete", title: "Tous les ingredients disponibles", tone: "ready", icon: CheckCircle2 },
+  { key: "missing1", title: "Il manque 1 ingredient", tone: "warn", icon: CircleAlert },
+  { key: "missing2", title: "Il manque 2 ingredients", tone: "warn", icon: CircleAlert },
+  { key: "missing3", title: "Il manque 3 ingredients", tone: "danger", icon: CircleAlert },
+  { key: "missingMore", title: "Il manque plus de 3 ingredients", tone: "danger", icon: CircleAlert }
+] as const;
+
+function hasRecipes(groups: RecipeSuggestionGroups) {
+  return categories.some((category) => groups[category.key].length > 0);
+}
+
+function MissingIngredientList({ ingredients }: { ingredients: RecipeIngredient[] }) {
+  if (ingredients.length === 0) {
+    return <p className="ready-note">Aucun ingredient manquant.</p>;
   }
 
-  useEffect(() => {
-    search().catch(() => setMessage("Backend indisponible : donnees de demonstration locales."));
-  }, []);
-
-  const grouped = {
-    complete: recipes.filter((recipe) => (recipe.missingCount || 0) === 0),
-    missingOne: recipes.filter((recipe) => recipe.missingCount === 1),
-    missingTwo: recipes.filter((recipe) => recipe.missingCount === 2),
-    missingThree: recipes.filter((recipe) => recipe.missingCount === 3)
-  };
-
   return (
-    <>
-      <form className="search-bar" onSubmit={search}>
-        <Search size={18} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher une recette ou un ingredient" />
-      </form>
-      <p className={isDemo ? "waste-alert" : "status-note"}>{message}</p>
-      <section className="suggestion-columns">
-        {Object.entries(grouped).map(([key, items]) => (
-          <div className="panel" key={key}>
-            <h2>{labels[key as keyof typeof labels]}</h2>
-            <div className="recipe-catalog compact">
-              {items.slice(0, 6).map((recipe) => (
-                <article className="recipe-card" key={recipe.externalId}>
-                  <img src={recipe.image} alt="" />
-                  <div>
-                    <strong>{recipe.title}</strong>
-                    <span>{recipe.preparationTime} min · {recipe.nutrition.calories} kcal</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        ))}
-      </section>
-    </>
+    <ul>
+      {ingredients.map((ingredient) => (
+        <li key={`${ingredient.normalizedName}-${ingredient.unit}`}>
+          {ingredient.ingredientName} - {ingredient.quantity} {ingredient.unit}
+        </li>
+      ))}
+    </ul>
   );
 }
 
-const labels = {
-  complete: "Tous les ingredients",
-  missingOne: "Il manque 1 ingredient",
-  missingTwo: "Il manque 2 ingredients",
-  missingThree: "Il manque 3 ingredients"
-};
+function RecipeCard({ recipe }: { recipe: Recipe }) {
+  const missingIngredients = recipe.missingIngredients || [];
+
+  return (
+    <article className="suggestion-card">
+      <img src={recipe.image} alt="" />
+      <div className="suggestion-card-body">
+        <div>
+          <strong>{recipe.title}</strong>
+          <span>{recipe.preparationTime} min - {recipe.nutrition.calories} kcal - {recipe.servings} portions</span>
+        </div>
+        <p>{recipe.missingCount || 0} ingredient{recipe.missingCount === 1 ? "" : "s"} manquant{recipe.missingCount === 1 ? "" : "s"}</p>
+        <MissingIngredientList ingredients={missingIngredients} />
+      </div>
+    </article>
+  );
+}
+
+export function RecipeBrowser() {
+  const [groups, setGroups] = useState<RecipeSuggestionGroups>(emptyGroups);
+  const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "empty-inventory" | "no-recipes" | "error">("loading");
+
+  const recipeCount = useMemo(() => {
+    return categories.reduce((count, category) => count + groups[category.key].length, 0);
+  }, [groups]);
+
+  useEffect(() => {
+    async function loadSuggestions() {
+      if (!getToken()) {
+        setStatus("missing-token");
+        return;
+      }
+
+      const inventory = await apiRequest<ApiInventoryItem[]>("/inventory");
+      if (inventory.length === 0) {
+        setGroups(emptyGroups);
+        setStatus("empty-inventory");
+        return;
+      }
+
+      const suggestions = await getRecipeSuggestions();
+      setGroups(suggestions);
+      setStatus(hasRecipes(suggestions) ? "ready" : "no-recipes");
+    }
+
+    loadSuggestions().catch((error) => {
+      setStatus(error instanceof Error && error.message === "Authentication required" ? "missing-token" : "error");
+    });
+  }, []);
+
+  if (status === "loading") {
+    return <div className="state-panel"><Loader2 size={22} /> Chargement des suggestions</div>;
+  }
+
+  if (status === "missing-token") {
+    return <div className="state-panel"><CircleAlert size={22} /> Connectez-vous pour voir les recettes calculees depuis votre inventaire.</div>;
+  }
+
+  if (status === "empty-inventory") {
+    return <div className="state-panel"><PackageOpen size={22} /> Ajoutez des ingredients dans votre inventaire pour obtenir des suggestions.</div>;
+  }
+
+  if (status === "error") {
+    return <div className="state-panel"><CircleAlert size={22} /> Backend indisponible : impossible de calculer les suggestions.</div>;
+  }
+
+  if (status === "no-recipes") {
+    return <div className="state-panel"><CircleAlert size={22} /> Aucune recette trouvee pour cet inventaire.</div>;
+  }
+
+  return (
+    <section className="suggestion-categories" aria-label={`${recipeCount} recettes suggerees`}>
+      {categories.map((category) => {
+        const recipes = groups[category.key];
+        const Icon = category.icon;
+
+        return (
+          <section className="suggestion-category" key={category.key}>
+            <header>
+              <h2><Icon className={category.tone} size={20} /> {category.title}</h2>
+              <span>{recipes.length}</span>
+            </header>
+
+            {recipes.length > 0 ? (
+              <div className="suggestion-grid">
+                {recipes.map((recipe) => <RecipeCard key={recipe.externalId || recipe.title} recipe={recipe} />)}
+              </div>
+            ) : (
+              <p className="empty-category">Aucune recette dans cette categorie.</p>
+            )}
+          </section>
+        );
+      })}
+    </section>
+  );
+}

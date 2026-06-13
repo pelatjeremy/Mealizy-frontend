@@ -804,6 +804,10 @@ input {
   font-weight: 800;
 }
 
+.ready-note {
+  color: var(--green);
+}
+
 .suggestion-card-body ul {
   display: grid;
   gap: 5px;
