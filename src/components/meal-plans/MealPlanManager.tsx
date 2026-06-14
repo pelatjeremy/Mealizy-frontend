@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Apple, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2 } from "lucide-react";
+import { Apple, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2, X } from "lucide-react";
 import { deleteMealPlan, getMealPlans, getProfile, getToken, updateMealPlan } from "@/lib/client-api";
 import type { MealPlan, MealPlanDay, MealType, UserProfile } from "@/types/domain";
 
@@ -15,7 +15,10 @@ const mealRows: { key: MealType; label: string; icon: typeof Coffee }[] = [
 ];
 
 function formatDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getMonday(date = new Date()) {
@@ -81,6 +84,8 @@ export function MealPlanManager() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [weekStart, setWeekStart] = useState(() => getMonday());
+  const [editingPlan, setEditingPlan] = useState<MealPlan | null>(null);
+  const [servingsDraft, setServingsDraft] = useState("1");
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
   const week = formatDateInput(weekStart);
 
@@ -126,13 +131,17 @@ export function MealPlanManager() {
     }
   }
 
-  async function handleUpdateServings(plan: MealPlan) {
-    const value = window.prompt("Nombre de portions", String(plan.servings));
-    if (!value) return;
+  function openUpdateServings(plan: MealPlan) {
+    setEditingPlan(plan);
+    setServingsDraft(String(plan.servings));
+  }
 
+  async function saveUpdateServings() {
+    if (!editingPlan) return;
     try {
-      const updated = await updateMealPlan(plan._id, { servings: Number(value) });
+      const updated = await updateMealPlan(editingPlan._id, { servings: Number(servingsDraft) });
       setPlans((items) => items.map((item) => (item._id === updated._id ? updated : item)));
+      setEditingPlan(null);
     } catch {
       setStatus("error");
     }
@@ -177,12 +186,27 @@ export function MealPlanManager() {
                     key={planKey(day, meal.key)}
                     plan={planMap[planKey(day, meal.key)]}
                     onDelete={handleDelete}
-                    onUpdateServings={handleUpdateServings}
+                    onUpdateServings={openUpdateServings}
                   />
                 ))}
               </Fragment>
             ))}
           </div>
+          {editingPlan && (
+            <div className="modal-backdrop" role="dialog" aria-modal="true">
+              <form className="planning-modal" onSubmit={(event) => { event.preventDefault(); saveUpdateServings(); }}>
+                <header>
+                  <div>
+                    <h2>Modifier les portions</h2>
+                    <p>{editingPlan.recipe?.title || "Recette"}</p>
+                  </div>
+                  <button type="button" aria-label="Fermer" onClick={() => setEditingPlan(null)}><X size={18} /></button>
+                </header>
+                <label>Portions<input min="1" type="number" value={servingsDraft} onChange={(event) => setServingsDraft(event.target.value)} /></label>
+                <button className="primary-action" type="submit">Enregistrer</button>
+              </form>
+            </div>
+          )}
         </>
       )}
     </section>

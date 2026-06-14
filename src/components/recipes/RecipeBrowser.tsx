@@ -75,7 +75,10 @@ function getMonday() {
   const day = date.getDay() || 7;
   date.setDate(date.getDate() - day + 1);
   date.setHours(0, 0, 0, 0);
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const dateOfMonth = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${dateOfMonth}`;
 }
 
 function recipeSource(recipe: Recipe): "api" | "user" | "demo" {
