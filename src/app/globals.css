@@ -36,7 +36,8 @@ a {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -312,6 +313,10 @@ input {
   padding-bottom: 4px;
 }
 
+.full-meal-grid {
+  grid-template-columns: 128px repeat(7, minmax(138px, 1fr));
+}
+
 .day-label {
   text-align: center;
   font-size: 13px;
@@ -348,13 +353,54 @@ input {
   margin-bottom: 7px;
 }
 
-.meal-slot span {
+.meal-slot span,
+.meal-slot strong {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+
+.meal-slot strong {
   font-weight: 800;
+}
+
+.meal-slot-empty {
+  display: grid;
+  min-height: 132px;
+  place-items: center;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.planned-slot {
+  min-height: 168px;
+}
+
+.planned-slot img {
+  height: 72px;
+}
+
+.meal-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.meal-actions button,
+.planning-modal header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .split-grid {
@@ -454,6 +500,11 @@ input {
   background: var(--green);
   color: white;
   font-weight: 800;
+}
+
+.compact-action {
+  width: auto;
+  padding: 0 14px;
 }
 
 .suggestions {
@@ -895,6 +946,68 @@ input {
   margin: 0;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(21, 23, 22, 0.36);
+}
+
+.planning-modal {
+  display: grid;
+  gap: 14px;
+  width: min(460px, 100%);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--shadow);
+}
+
+.planning-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.planning-modal h2,
+.planning-modal p {
+  margin: 0;
+}
+
+.planning-modal p,
+.form-note {
+  color: var(--muted);
+}
+
+.planning-modal label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.planning-modal input,
+.planning-modal select {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.planning-modal .primary-action {
+  width: 100%;
+}
+
+.form-note {
+  margin: 0;
+  font-weight: 800;
+}
+
 @media (max-width: 1280px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
@@ -968,6 +1081,10 @@ input {
 
   .meal-grid {
     grid-template-columns: 96px repeat(7, 118px);
+  }
+
+  .full-meal-grid {
+    grid-template-columns: 112px repeat(7, 136px);
   }
 
   .recipe-row,

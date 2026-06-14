@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, CircleAlert, Loader2, PackageOpen } from "lucide-react";
-import { apiRequest, getRecipeSuggestions, getToken } from "@/lib/client-api";
-import type { Recipe, RecipeIngredient, RecipeSuggestionGroups } from "@/types/domain";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { CalendarPlus, CheckCircle2, CircleAlert, Loader2, PackageOpen, X } from "lucide-react";
+import { apiRequest, createMealPlan, getProfile, getRecipeSuggestions, getToken } from "@/lib/client-api";
+import type { MealPlanDay, MealType, Recipe, RecipeIngredient, RecipeSuggestionGroups, UserProfile } from "@/types/domain";
 
 type ApiInventoryItem = {
   _id: string;
@@ -24,6 +24,23 @@ const categories = [
   { key: "missing3", title: "Il manque 3 ingredients", tone: "danger", icon: CircleAlert },
   { key: "missingMore", title: "Il manque plus de 3 ingredients", tone: "danger", icon: CircleAlert }
 ] as const;
+
+const days: { key: MealPlanDay; label: string }[] = [
+  { key: "monday", label: "Lundi" },
+  { key: "tuesday", label: "Mardi" },
+  { key: "wednesday", label: "Mercredi" },
+  { key: "thursday", label: "Jeudi" },
+  { key: "friday", label: "Vendredi" },
+  { key: "saturday", label: "Samedi" },
+  { key: "sunday", label: "Dimanche" }
+];
+
+const mealTypes: { key: MealType; label: string }[] = [
+  { key: "breakfast", label: "Petit-dejeuner" },
+  { key: "lunch", label: "Dejeuner" },
+  { key: "dinner", label: "Diner" },
+  { key: "snack", label: "Collation" }
+];
 
 function hasRecipes(groups: RecipeSuggestionGroups) {
   return categories.some((category) => groups[category.key].length > 0);
@@ -53,7 +70,89 @@ function MissingIngredientList({ ingredients }: { ingredients: RecipeIngredient[
   );
 }
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+function getMonday() {
+  const date = new Date();
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
+}
+
+function recipeSource(recipe: Recipe): "api" | "user" | "demo" {
+  return recipe.source || (recipe.externalId?.startsWith("demo-") ? "demo" : "user");
+}
+
+function recipeId(recipe: Recipe) {
+  return recipe.externalId || recipe._id || recipe.id || "";
+}
+
+function PlanningModal({
+  recipe,
+  profile,
+  onClose
+}: {
+  recipe: Recipe;
+  profile: UserProfile | null;
+  onClose: () => void;
+}) {
+  const enabledMealTypes = profile?.enabledMealTypes?.length ? profile.enabledMealTypes : mealTypes.map((meal) => meal.key);
+  const visibleMealTypes = mealTypes.filter((meal) => enabledMealTypes.includes(meal.key));
+  const [weekStartDate, setWeekStartDate] = useState(getMonday());
+  const [day, setDay] = useState<MealPlanDay>("monday");
+  const [mealType, setMealType] = useState<MealType>(visibleMealTypes[0]?.key || "lunch");
+  const [servings, setServings] = useState(profile?.householdSize || recipe.servings || 1);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("saving");
+    try {
+      await createMealPlan({
+        weekStartDate,
+        day,
+        mealType,
+        recipeId: recipeId(recipe),
+        recipeSource: recipeSource(recipe),
+        servings
+      });
+      setStatus("saved");
+      window.setTimeout(onClose, 650);
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <form className="planning-modal" onSubmit={submit}>
+        <header>
+          <div>
+            <h2>Ajouter au planning</h2>
+            <p>{recipe.title}</p>
+          </div>
+          <button type="button" aria-label="Fermer" onClick={onClose}><X size={18} /></button>
+        </header>
+        <label>Semaine<input type="date" value={weekStartDate} onChange={(event) => setWeekStartDate(event.target.value)} /></label>
+        <label>Jour
+          <select value={day} onChange={(event) => setDay(event.target.value as MealPlanDay)}>
+            {days.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </label>
+        <label>Type de repas
+          <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
+            {visibleMealTypes.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </label>
+        <label>Portions<input min="1" type="number" value={servings} onChange={(event) => setServings(Number(event.target.value))} /></label>
+        <button className="primary-action" type="submit" disabled={status === "saving"}><CalendarPlus size={17} /> Enregistrer</button>
+        {status === "saved" && <p className="form-note ready">Repas ajoute.</p>}
+        {status === "error" && <p className="form-note danger">Impossible d'ajouter ce repas.</p>}
+      </form>
+    </div>
+  );
+}
+
+function RecipeCard({ recipe, onPlan }: { recipe: Recipe; onPlan: (recipe: Recipe) => void }) {
   const missingIngredients = recipe.missingIngredients || [];
 
   return (
@@ -66,6 +165,9 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
         </div>
         <p>{recipe.missingCount || 0} ingredient{recipe.missingCount === 1 ? "" : "s"} manquant{recipe.missingCount === 1 ? "" : "s"}</p>
         <MissingIngredientList ingredients={missingIngredients} />
+        <button className="outline-action" type="button" onClick={() => onPlan(recipe)}>
+          <CalendarPlus size={17} /> Ajouter au planning
+        </button>
       </div>
     </article>
   );
@@ -73,6 +175,8 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
 
 export function RecipeBrowser() {
   const [groups, setGroups] = useState<RecipeSuggestionGroups>(emptyGroups);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "empty-inventory" | "no-recipes" | "error">("loading");
 
   const recipeCount = useMemo(() => {
@@ -93,7 +197,8 @@ export function RecipeBrowser() {
         return;
       }
 
-      const suggestions = await getRecipeSuggestions();
+      const [suggestions, userProfile] = await Promise.all([getRecipeSuggestions(), getProfile()]);
+      setProfile(userProfile);
       setGroups(suggestions);
       setStatus(hasRecipes(suggestions) ? "ready" : "no-recipes");
     }
@@ -145,7 +250,7 @@ export function RecipeBrowser() {
 
             {recipes.length > 0 ? (
               <div className="suggestion-grid">
-                {recipes.map((recipe) => <RecipeCard key={recipe.externalId || recipe.title} recipe={recipe} />)}
+                {recipes.map((recipe) => <RecipeCard key={recipe.externalId || recipe.title} recipe={recipe} onPlan={setSelectedRecipe} />)}
               </div>
             ) : (
               <p className="empty-category">Aucune recette dans cette categorie.</p>
@@ -153,6 +258,7 @@ export function RecipeBrowser() {
           </section>
         );
       })}
+      {selectedRecipe && <PlanningModal recipe={selectedRecipe} profile={profile} onClose={() => setSelectedRecipe(null)} />}
     </section>
   );
 }

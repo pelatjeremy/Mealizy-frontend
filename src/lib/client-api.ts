@@ -1,4 +1,4 @@
-import type { RecipeSuggestionGroups } from "@/types/domain";
+import type { MealPlan, MealPlanDay, MealType, RecipeSuggestionGroups, UserProfile } from "@/types/domain";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const TOKEN_KEY = "mealizy_token";
@@ -55,4 +55,37 @@ export async function register(data: Record<string, unknown>) {
 
 export async function getRecipeSuggestions() {
   return apiRequest<RecipeSuggestionGroups>("/recipes/suggestions");
+}
+
+export async function getProfile() {
+  return apiRequest<UserProfile>("/users/profile");
+}
+
+export async function getMealPlans(week: string) {
+  return apiRequest<MealPlan[]>(`/meal-plans?week=${encodeURIComponent(week)}`);
+}
+
+export async function createMealPlan(payload: {
+  weekStartDate: string;
+  day: MealPlanDay;
+  mealType: MealType;
+  recipeId: string;
+  recipeSource: "api" | "user" | "demo";
+  servings?: number;
+}) {
+  return apiRequest<MealPlan>("/meal-plans", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateMealPlan(id: string, payload: { servings?: number; recipeId?: string; recipeSource?: "api" | "user" | "demo" }) {
+  return apiRequest<MealPlan>(`/meal-plans/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteMealPlan(id: string) {
+  return apiRequest<void>(`/meal-plans/${id}`, { method: "DELETE" });
 }

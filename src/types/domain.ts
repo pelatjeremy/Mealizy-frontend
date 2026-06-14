@@ -9,6 +9,9 @@ export type RecipeIngredient = {
 };
 
 export type Recipe = {
+  _id?: string;
+  id?: string;
+  source?: "api" | "user" | "demo";
   externalId: string;
   title: string;
   image: string;
@@ -49,4 +52,44 @@ export type ShoppingItem = {
   unit: string;
   category: string;
   checked: boolean;
+};
+
+export type UserProfile = {
+  _id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  householdSize?: number;
+  enabledMealTypes: MealType[];
+};
+
+export type MealPlanDay =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export type MealPlanRecipe = {
+  id: string;
+  source: "api" | "user" | "demo";
+  title: string;
+  image: string;
+  preparationTime: number;
+  calories: number;
+  servings: number;
+};
+
+export type MealPlan = {
+  _id: string;
+  userId: string;
+  weekStartDate: string;
+  day: MealPlanDay;
+  mealType: MealType;
+  recipeId: string;
+  recipeSource: "api" | "user" | "demo";
+  servings: number;
+  recipe?: MealPlanRecipe;
 };
