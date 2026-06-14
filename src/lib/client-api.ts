@@ -1,4 +1,4 @@
-import type { MealPlan, MealPlanDay, MealType, RecipeSuggestionGroups, UserProfile } from "@/types/domain";
+import type { MealPlan, MealPlanDay, MealType, RecipeSuggestionGroups, ShoppingList, UserProfile } from "@/types/domain";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const TOKEN_KEY = "mealizy_token";
@@ -18,21 +18,30 @@ export function clearToken() {
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers || {})
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers || {})
+      },
+      signal: controller.signal,
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.message || "Requete API impossible");
     }
-  });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.message || "Requête API impossible");
+    return response.status === 204 ? (undefined as T) : response.json();
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return response.status === 204 ? (undefined as T) : response.json();
 }
 
 export async function login(email: string, password: string) {
@@ -88,4 +97,40 @@ export async function updateMealPlan(id: string, payload: { servings?: number; r
 
 export async function deleteMealPlan(id: string) {
   return apiRequest<void>(`/meal-plans/${id}`, { method: "DELETE" });
+}
+
+function normalizeShoppingList(list: ShoppingList): ShoppingList {
+  return {
+    ...list,
+    items: (list.items || []).map((item) => ({
+      ...item,
+      id: item.id || item._id || ""
+    }))
+  };
+}
+
+export async function getShoppingList(week: string) {
+  const list = await apiRequest<ShoppingList>(`/shopping-list?week=${encodeURIComponent(week)}`);
+  return normalizeShoppingList(list);
+}
+
+export async function generateShoppingList(week: string) {
+  const list = await apiRequest<ShoppingList>("/shopping-list/generate", {
+    method: "POST",
+    body: JSON.stringify({ week })
+  });
+  return normalizeShoppingList(list);
+}
+
+export async function updateShoppingListItemChecked(id: string, checked: boolean) {
+  const list = await apiRequest<ShoppingList>(`/shopping-list/items/${id}/check`, {
+    method: "PUT",
+    body: JSON.stringify({ checked })
+  });
+  return normalizeShoppingList(list);
+}
+
+export async function addShoppingListItemToInventory(id: string) {
+  const list = await apiRequest<ShoppingList>(`/shopping-list/items/${id}/add-to-inventory`, { method: "POST" });
+  return normalizeShoppingList(list);
 }

@@ -1,81 +1,194 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import { apiRequest, getToken } from "@/lib/client-api";
-import { shoppingList as demoShoppingList } from "@/lib/demo-data";
-import { ShoppingItem } from "@/types/domain";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CircleAlert, Loader2, RefreshCw } from "lucide-react";
+import {
+  addShoppingListItemToInventory,
+  generateShoppingList,
+  getShoppingList,
+  getToken,
+  updateShoppingListItemChecked
+} from "@/lib/client-api";
+import type { ShoppingItem, ShoppingList } from "@/types/domain";
+import { formatWeekParam, getWeekStart, WeekSelector } from "./WeekSelector";
+import { ShoppingListItem } from "./ShoppingListItem";
 
-type ApiShoppingList = {
-  _id: string;
-  items: Array<ShoppingItem & { _id: string }>;
-};
+type Status = "loading" | "ready" | "missing-token" | "error";
 
-const weekStartDate = "2024-05-26";
+function splitItems(items: ShoppingItem[]) {
+  return {
+    toBuy: items.filter((item) => !item.checked),
+    bought: items.filter((item) => item.checked)
+  };
+}
 
 export function ShoppingListManager() {
-  const [listId, setListId] = useState<string | null>(null);
-  const [items, setItems] = useState<ShoppingItem[]>(demoShoppingList);
-  const [message, setMessage] = useState("Données de démonstration tant que vous n’êtes pas connecté.");
+  const [token, setTokenState] = useState("");
+  const [weekStart, setWeekStart] = useState(() => getWeekStart());
+  const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+  const [notice, setNotice] = useState("");
+  const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  function applyList(list?: ApiShoppingList) {
-    if (!list) return;
-    setListId(list._id);
-    setItems(list.items.map((item) => ({ ...item, id: item._id })));
-  }
+  const week = formatWeekParam(weekStart);
+  const items = shoppingList?.items || [];
+  const { toBuy, bought } = useMemo(() => splitItems(items), [items]);
 
-  async function load() {
-    if (!getToken()) return;
-    const lists = await apiRequest<ApiShoppingList[]>(`/shopping-list?weekStartDate=${weekStartDate}`);
-    applyList(lists[0]);
-    setMessage("Liste synchronisée avec le backend.");
-  }
+  const loadList = useCallback(async () => {
+    setStatus("loading");
+    setNotice("");
+    try {
+      const list = await getShoppingList(week);
+      setShoppingList(list);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
+    }
+  }, [week]);
 
   useEffect(() => {
-    load().catch((error) => setMessage(error.message));
-  }, []);
-
-  async function generate() {
-    if (!getToken()) {
-      setMessage("Connectez-vous pour générer une liste depuis le planning.");
+    const authToken = getToken() || "";
+    setTokenState(authToken);
+    if (!authToken) {
+      setStatus("missing-token");
       return;
     }
-    const list = await apiRequest<ApiShoppingList>("/shopping-list/generate", {
-      method: "POST",
-      body: JSON.stringify({ weekStartDate })
-    });
-    applyList(list);
-    setMessage("Liste générée depuis le planning.");
+    loadList();
+  }, [loadList]);
+
+  async function handleGenerate() {
+    if (!token) return;
+    setIsGenerating(true);
+    setNotice("");
+    try {
+      await generateShoppingList(week);
+      await loadList();
+      setNotice("Liste de courses générée avec succès.");
+    } catch {
+      setStatus("error");
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
-  async function toggle(item: ShoppingItem) {
-    const checked = !item.checked;
-    setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, checked } : entry));
-    if (getToken()) {
-      const list = await apiRequest<ApiShoppingList>(`/shopping-list/items/${item.id}/check`, {
-        method: "PUT",
-        body: JSON.stringify({ checked, addToInventory: checked })
-      });
-      applyList(list);
+  async function handleToggle(item: ShoppingItem, checked: boolean) {
+    if (!token || !item.id) return;
+
+    setBusyItemId(item.id);
+    setShoppingList((current) =>
+      current
+        ? {
+            ...current,
+            items: current.items.map((entry) => (entry.id === item.id ? { ...entry, checked } : entry))
+          }
+        : current
+    );
+
+    try {
+      const list = await updateShoppingListItemChecked(item.id, checked);
+      setShoppingList(list);
+    } catch {
+      setShoppingList((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((entry) => (entry.id === item.id ? { ...entry, checked: item.checked } : entry))
+            }
+          : current
+      );
+      setStatus("error");
+    } finally {
+      setBusyItemId(null);
     }
+  }
+
+  async function handleAddToInventory(item: ShoppingItem) {
+    if (!token || !item.id) return;
+    setBusyItemId(item.id);
+    setNotice("");
+    try {
+      const list = await addShoppingListItemToInventory(item.id);
+      setShoppingList(list);
+      setNotice(`${item.ingredientName} ajouté à l'inventaire.`);
+    } catch {
+      setStatus("error");
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
+  function renderItems(sectionItems: ShoppingItem[], emptyText: string) {
+    if (sectionItems.length === 0) return <div className="shopping-empty">{emptyText}</div>;
+
+    return (
+      <ul className="shopping-list detailed">
+        {sectionItems.map((item) => (
+          <ShoppingListItem
+            key={item.id}
+            item={item}
+            disabled={busyItemId === item.id}
+            onToggle={handleToggle}
+            onAddToInventory={handleAddToInventory}
+          />
+        ))}
+      </ul>
+    );
   }
 
   return (
-    <section className="panel shopping-preview">
-      <div className="panel-header compact">
-        <h2>Produits à acheter</h2>
-        <button className="primary-action" type="button" onClick={generate}><RefreshCw size={17} /> Générer</button>
+    <section className="shopping-manager">
+      <div className="panel shopping-toolbar">
+        <div>
+          <h2>Semaine de courses</h2>
+          <p>{shoppingList?._id ? `${items.length} article${items.length > 1 ? "s" : ""} dans la liste.` : "Aucune liste générée pour cette semaine."}</p>
+        </div>
+        <WeekSelector weekStart={weekStart} onChange={setWeekStart} />
+        <button type="button" className="primary-action" disabled={isGenerating || status === "missing-token"} onClick={handleGenerate}>
+          {isGenerating ? <Loader2 size={17} /> : <RefreshCw size={17} />}
+          Générer la liste
+        </button>
       </div>
-      <p className="status-note">{message}{listId ? ` Liste ${listId.slice(-6)}.` : ""}</p>
-      <ul className="shopping-list interactive">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button className={item.checked ? "checkbox checked" : "checkbox"} aria-label="Cocher" type="button" onClick={() => toggle(item)} />
-            <strong>{item.ingredientName}</strong>
-            <small>{item.quantity} {item.unit}</small>
-          </li>
-        ))}
-      </ul>
+
+      {notice && <div className="state-panel success-state">{notice}</div>}
+      {status === "loading" && <div className="state-panel"><Loader2 size={22} /> Chargement de la liste...</div>}
+      {status === "missing-token" && <div className="state-panel"><CircleAlert size={22} /> Connectez-vous pour gérer votre liste de courses.</div>}
+      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> Impossible de récupérer la liste de courses.</div>}
+
+      {status === "ready" && (
+        <div className="shopping-sections">
+          {!shoppingList?._id && (
+            <div className="state-panel shopping-callout">
+              Aucune liste générée pour cette semaine.
+              <button type="button" className="primary-action" disabled={isGenerating} onClick={handleGenerate}>
+                Générer ma liste de courses
+              </button>
+            </div>
+          )}
+
+          {shoppingList?._id && items.length === 0 && <div className="state-panel">Aucun article à acheter.</div>}
+
+          {shoppingList?._id && items.length > 0 && (
+            <>
+              <section className="panel shopping-section">
+                <div className="panel-header compact">
+                  <h2>À acheter</h2>
+                  <span>{toBuy.length}</span>
+                </div>
+                {renderItems(toBuy, "Aucun article à acheter.")}
+              </section>
+
+              <section className="panel shopping-section">
+                <div className="panel-header compact">
+                  <h2>Déjà achetés</h2>
+                  <span>{bought.length}</span>
+                </div>
+                {renderItems(bought, "Aucun article déjà acheté.")}
+              </section>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

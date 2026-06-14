@@ -5,7 +5,7 @@ export default function ShoppingListPage() {
   return (
     <PageScaffold
       title="Liste de courses"
-      description="Generez la liste depuis le planning et ajoutez les achats coches a l’inventaire."
+      description="Générez, cochez et rangez les achats calculés depuis votre planning de repas."
     >
       <ShoppingListManager />
     </PageScaffold>
