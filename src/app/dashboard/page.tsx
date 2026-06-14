@@ -5,7 +5,6 @@ import { RecipeSuggestions } from "@/components/dashboard/RecipeSuggestions";
 import { ShoppingPreview } from "@/components/dashboard/ShoppingPreview";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { InventoryPreview } from "@/components/dashboard/InventoryPreview";
-import { LiveDashboardSummary } from "@/components/dashboard/LiveDashboardSummary";
 import { getDashboardData } from "@/lib/api";
 
 export default async function DashboardPage() {
@@ -31,8 +30,6 @@ export default async function DashboardPage() {
           <StatCard icon={ShoppingCart} tone="purple" label="Liste de courses" value={shoppingList.length.toString()} helper="produits à acheter" href="/shopping-list" cta="Voir la liste" />
           <StatCard icon={Flame} tone="blue" label="Calories moyenne" value="1 850" helper="kcal / jour" href="/profile" cta="Voir le détail" />
         </section>
-
-        <LiveDashboardSummary />
 
         <MealPlanner />
 

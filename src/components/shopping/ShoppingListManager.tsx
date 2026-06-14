@@ -6,9 +6,9 @@ import {
   addShoppingListItemToInventory,
   generateShoppingList,
   getShoppingList,
-  getToken,
+  readAuthToken,
   updateShoppingListItemChecked
-} from "@/lib/client-api";
+} from "@/lib/api";
 import type { ShoppingItem, ShoppingList } from "@/types/domain";
 import { formatWeekParam, getWeekStart, WeekSelector } from "./WeekSelector";
 import { ShoppingListItem } from "./ShoppingListItem";
@@ -23,7 +23,7 @@ function splitItems(items: ShoppingItem[]) {
 }
 
 export function ShoppingListManager() {
-  const [token, setTokenState] = useState("");
+  const [token, setToken] = useState("");
   const [weekStart, setWeekStart] = useState(() => getWeekStart());
   const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -35,26 +35,29 @@ export function ShoppingListManager() {
   const items = shoppingList?.items || [];
   const { toBuy, bought } = useMemo(() => splitItems(items), [items]);
 
-  const loadList = useCallback(async () => {
-    setStatus("loading");
-    setNotice("");
-    try {
-      const list = await getShoppingList(week);
-      setShoppingList(list);
-      setStatus("ready");
-    } catch {
-      setStatus("error");
-    }
-  }, [week]);
+  const loadList = useCallback(
+    async (authToken: string) => {
+      setStatus("loading");
+      setNotice("");
+      try {
+        const list = await getShoppingList(authToken, week);
+        setShoppingList(list);
+        setStatus("ready");
+      } catch {
+        setStatus("error");
+      }
+    },
+    [week]
+  );
 
   useEffect(() => {
-    const authToken = getToken() || "";
-    setTokenState(authToken);
+    const authToken = readAuthToken();
+    setToken(authToken);
     if (!authToken) {
       setStatus("missing-token");
       return;
     }
-    loadList();
+    loadList(authToken);
   }, [loadList]);
 
   async function handleGenerate() {
@@ -62,8 +65,8 @@ export function ShoppingListManager() {
     setIsGenerating(true);
     setNotice("");
     try {
-      await generateShoppingList(week);
-      await loadList();
+      await generateShoppingList(token, week);
+      await loadList(token);
       setNotice("Liste de courses générée avec succès.");
     } catch {
       setStatus("error");
@@ -86,7 +89,7 @@ export function ShoppingListManager() {
     );
 
     try {
-      const list = await updateShoppingListItemChecked(item.id, checked);
+      const list = await updateShoppingListItemChecked(token, item.id, checked);
       setShoppingList(list);
     } catch {
       setShoppingList((current) =>
@@ -108,7 +111,7 @@ export function ShoppingListManager() {
     setBusyItemId(item.id);
     setNotice("");
     try {
-      const list = await addShoppingListItemToInventory(item.id);
+      const list = await addShoppingListItemToInventory(token, item.id);
       setShoppingList(list);
       setNotice(`${item.ingredientName} ajouté à l'inventaire.`);
     } catch {
