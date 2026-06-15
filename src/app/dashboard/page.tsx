@@ -42,6 +42,15 @@ function getPlanCalories(plan: MealPlan) {
   return Number.isFinite(calories) && calories > 0 ? calories : 0;
 }
 
+function getDisplayedMealPlans(plans: MealPlan[]) {
+  return Object.values(
+    plans.reduce<Record<string, MealPlan>>((map, plan) => {
+      map[`${plan.day}:${plan.mealType}`] = plan;
+      return map;
+    }, {})
+  );
+}
+
 export default function DashboardPage() {
   const [weekStart, setWeekStart] = useState(() => getMonday());
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -87,11 +96,13 @@ export default function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  const displayedPlans = useMemo(() => getDisplayedMealPlans(mealPlans), [mealPlans]);
+
   const averageCalories = useMemo(() => {
-    const calorieValues = mealPlans.map(getPlanCalories).filter((calories) => calories > 0);
+    const calorieValues = displayedPlans.map(getPlanCalories).filter((calories) => calories > 0);
     if (calorieValues.length === 0) return 0;
     return Math.round(calorieValues.reduce((sum, calories) => sum + calories, 0) / calorieValues.length);
-  }, [mealPlans]);
+  }, [displayedPlans]);
 
   return (
     <div className="dashboard-layout">
@@ -113,7 +124,7 @@ export default function DashboardPage() {
 
         <section className="stats-grid" aria-label="Indicateurs">
           <StatCard icon={PackageOpen} tone="green" label="Inventaire" value={inventory.length.toString()} helper="produits disponibles" href="/inventory" cta="Voir l'inventaire" />
-          <StatCard icon={Utensils} tone="orange" label="Repas planifiés" value={mealPlans.length.toString()} helper="repas cette semaine" href="/meal-plans" cta="Voir le planning" />
+          <StatCard icon={Utensils} tone="orange" label="Repas planifiés" value={displayedPlans.length.toString()} helper="repas cette semaine" href="/meal-plans" cta="Voir le planning" />
           <StatCard icon={ShoppingCart} tone="purple" label="Liste de courses" value={shoppingItems.length.toString()} helper="produits à acheter" href="/shopping-list" cta="Voir la liste" />
           <StatCard icon={Flame} tone="blue" label="Calories moyenne" value={averageCalories ? averageCalories.toString() : "-"} helper="kcal / repas planifié" href="/profile" cta="Voir le détail" />
         </section>
@@ -128,7 +139,7 @@ export default function DashboardPage() {
 
       <aside className="right-rail">
         <RecipeSuggestions recipes={recipes} />
-        <NutritionPanel mealPlans={mealPlans} />
+        <NutritionPanel mealPlans={displayedPlans} />
       </aside>
     </div>
   );
