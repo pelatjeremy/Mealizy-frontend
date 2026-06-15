@@ -37,7 +37,13 @@ function flattenSuggestions(groups: Awaited<ReturnType<typeof getRecipeSuggestio
   return [...groups.complete, ...groups.missing1, ...groups.missing2, ...groups.missing3];
 }
 
+function getPlanCalories(plan: MealPlan) {
+  const calories = Number(plan.recipe?.nutrition?.calories || plan.recipe?.calories || 0);
+  return Number.isFinite(calories) && calories > 0 ? calories : 0;
+}
+
 export default function DashboardPage() {
+  const [weekStart, setWeekStart] = useState(() => getMonday());
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
@@ -56,33 +62,35 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const week = formatDateInput(getMonday());
-      const [inventoryItems, weekPlans, shoppingList, suggestionGroups] = await Promise.all([
+      const week = formatDateInput(weekStart);
+      const [inventoryItems, weekPlans, shoppingList] = await Promise.all([
         getInventory(token),
         getMealPlans(token, week),
-        getShoppingList(token, week),
-        getRecipeSuggestions(token)
+        getShoppingList(token, week)
       ]);
 
       setInventory(inventoryItems);
       setMealPlans(weekPlans);
       setShoppingItems((shoppingList.items || []).filter((item) => !item.checked));
-      setRecipes(flattenSuggestions(suggestionGroups));
       setStatus("ready");
+
+      getRecipeSuggestions(token)
+        .then((suggestionGroups) => setRecipes(flattenSuggestions(suggestionGroups)))
+        .catch(() => setRecipes([]));
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible de charger le tableau de bord."));
       setStatus("error");
     }
-  }, []);
+  }, [weekStart]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
   const averageCalories = useMemo(() => {
-    if (mealPlans.length === 0) return 0;
-    const total = mealPlans.reduce((sum, plan) => sum + Number(plan.recipe?.calories || 0), 0);
-    return Math.round(total / mealPlans.length);
+    const calorieValues = mealPlans.map(getPlanCalories).filter((calories) => calories > 0);
+    if (calorieValues.length === 0) return 0;
+    return Math.round(calorieValues.reduce((sum, calories) => sum + calories, 0) / calorieValues.length);
   }, [mealPlans]);
 
   return (
@@ -110,7 +118,7 @@ export default function DashboardPage() {
           <StatCard icon={Flame} tone="blue" label="Calories moyenne" value={averageCalories ? averageCalories.toString() : "-"} helper="kcal / repas planifié" href="/profile" cta="Voir le détail" />
         </section>
 
-        <MealPlanner onChanged={loadDashboard} />
+        <MealPlanner weekStart={weekStart} onWeekStartChange={setWeekStart} onChanged={loadDashboard} />
 
         <section className="split-grid">
           <InventoryPreview items={inventory} />
@@ -120,7 +128,7 @@ export default function DashboardPage() {
 
       <aside className="right-rail">
         <RecipeSuggestions recipes={recipes} />
-        <NutritionPanel />
+        <NutritionPanel mealPlans={mealPlans} />
       </aside>
     </div>
   );

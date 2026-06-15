@@ -152,15 +152,33 @@ function MealSlot({
   );
 }
 
-export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
+type MealPlannerProps = {
+  onChanged?: () => void;
+  weekStart?: Date;
+  onWeekStartChange?: (weekStart: Date) => void;
+};
+
+export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekStartChange }: MealPlannerProps) {
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
-  const [weekStart, setWeekStart] = useState(() => getMonday());
+  const [internalWeekStart, setInternalWeekStart] = useState(() => getMonday());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
   const [error, setError] = useState("");
+  const weekStart = controlledWeekStart ?? internalWeekStart;
   const week = formatDateInput(weekStart);
+
+  const setDisplayedWeekStart = useCallback(
+    (nextWeekStart: Date | ((current: Date) => Date)) => {
+      const next = typeof nextWeekStart === "function" ? nextWeekStart(weekStart) : nextWeekStart;
+      if (controlledWeekStart === undefined) {
+        setInternalWeekStart(next);
+      }
+      onWeekStartChange?.(next);
+    },
+    [controlledWeekStart, onWeekStartChange, weekStart]
+  );
 
   const visibleMeals = useMemo(() => {
     const enabled = profile?.enabledMealTypes?.length ? profile.enabledMealTypes : mealRows.map((meal) => meal.key);
@@ -233,15 +251,15 @@ export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
       <div className="panel-header">
         <h2>Planning des repas</h2>
         <div className="week-switcher">
-          <button type="button" aria-label="Semaine précédente" onClick={() => setWeekStart((date) => addWeeks(date, -1))}>
+          <button type="button" aria-label="Semaine précédente" onClick={() => setDisplayedWeekStart((date) => addWeeks(date, -1))}>
             <ChevronLeft size={17} />
           </button>
           <span>{formatWeekRange(weekStart)}</span>
-          <button type="button" aria-label="Semaine suivante" onClick={() => setWeekStart((date) => addWeeks(date, 1))}>
+          <button type="button" aria-label="Semaine suivante" onClick={() => setDisplayedWeekStart((date) => addWeeks(date, 1))}>
             <ChevronRight size={17} />
           </button>
         </div>
-        <button type="button" className="outline-action compact-action" onClick={() => setWeekStart(getMonday())}>
+        <button type="button" className="outline-action compact-action" onClick={() => setDisplayedWeekStart(getMonday())}>
           Semaine actuelle
         </button>
       </div>
