@@ -6,11 +6,13 @@ import type { ShoppingItem } from "@/types/domain";
 export function ShoppingListItem({
   item,
   disabled,
+  showAddToInventory = true,
   onToggle,
   onAddToInventory
 }: {
   item: ShoppingItem;
   disabled?: boolean;
+  showAddToInventory?: boolean;
   onToggle: (item: ShoppingItem, checked: boolean) => void;
   onAddToInventory: (item: ShoppingItem) => void;
 }) {
@@ -27,10 +29,12 @@ export function ShoppingListItem({
       <span className="shopping-quantity">
         {item.quantity} {item.unit}
       </span>
-      <button type="button" className="outline-action compact-action" disabled={disabled} onClick={() => onAddToInventory(item)}>
-        <PackagePlus size={16} />
-        Ajouter à l'inventaire
-      </button>
+      {showAddToInventory && (
+        <button type="button" className="outline-action compact-action" disabled={disabled} onClick={() => onAddToInventory(item)}>
+          <PackagePlus size={16} />
+          Ajouter à l'inventaire
+        </button>
+      )}
     </li>
   );
 }

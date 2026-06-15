@@ -15,7 +15,10 @@ const mealRows: { key: MealType; label: string; icon: typeof Coffee }[] = [
 ];
 
 function formatDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getMonday(date = new Date()) {
@@ -77,7 +80,7 @@ function MealSlot({
   );
 }
 
-export function MealPlanner() {
+export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<MealPlan[]>([]);
@@ -130,6 +133,7 @@ export function MealPlanner() {
     try {
       await deleteMealPlan(token, plan._id);
       setPlans((items) => items.filter((item) => item._id !== plan._id));
+      onChanged?.();
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible de supprimer ce repas."));
       setStatus("error");
@@ -144,6 +148,7 @@ export function MealPlanner() {
     try {
       const updated = await updateMealPlan(token, plan._id, { servings: Number(value) });
       setPlans((items) => items.map((item) => (item._id === updated._id ? updated : item)));
+      onChanged?.();
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible de modifier les portions."));
       setStatus("error");

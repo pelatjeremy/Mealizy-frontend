@@ -1,4 +1,3 @@
-import { inventory, recipes, shoppingList } from "./demo-data";
 import type { InventoryItem, MealPlan, MealPlanDay, MealType, Recipe, RecipeIngredient, RecipeSuggestionGroups, ShoppingList, UserProfile } from "@/types/domain";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -308,13 +307,4 @@ export async function addShoppingListItemToInventory(token: string, id: string) 
     headers: { Authorization: `Bearer ${token}` }
   });
   return normalizeShoppingList(list);
-}
-
-export async function getDashboardData() {
-  try {
-    const [recipeResults] = await Promise.all([request<typeof recipes>("/recipes/search")]);
-    return { inventory, shoppingList, recipes: recipeResults };
-  } catch {
-    return { inventory, shoppingList, recipes };
-  }
 }

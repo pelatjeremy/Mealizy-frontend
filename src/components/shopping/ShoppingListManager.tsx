@@ -115,7 +115,7 @@ export function ShoppingListManager() {
   }
 
   async function handleAddToInventory(item: ShoppingItem) {
-    if (!token || !item.id) return;
+    if (!token || !item.id || item.checked) return;
     setBusyItemId(item.id);
     setNotice("");
     setError("");
@@ -131,7 +131,7 @@ export function ShoppingListManager() {
     }
   }
 
-  function renderItems(sectionItems: ShoppingItem[], emptyText: string) {
+  function renderItems(sectionItems: ShoppingItem[], emptyText: string, showAddToInventory: boolean) {
     if (sectionItems.length === 0) return <div className="shopping-empty">{emptyText}</div>;
 
     return (
@@ -141,6 +141,7 @@ export function ShoppingListManager() {
             key={item.id}
             item={item}
             disabled={busyItemId === item.id}
+            showAddToInventory={showAddToInventory}
             onToggle={handleToggle}
             onAddToInventory={handleAddToInventory}
           />
@@ -188,7 +189,7 @@ export function ShoppingListManager() {
                   <h2>À acheter</h2>
                   <span>{toBuy.length}</span>
                 </div>
-                {renderItems(toBuy, "Aucun article à acheter.")}
+                {renderItems(toBuy, "Aucun article à acheter.", true)}
               </section>
 
               <section className="panel shopping-section">
@@ -196,7 +197,7 @@ export function ShoppingListManager() {
                   <h2>Déjà achetés</h2>
                   <span>{bought.length}</span>
                 </div>
-                {renderItems(bought, "Aucun article déjà acheté.")}
+                {renderItems(bought, "Aucun article déjà acheté.", false)}
               </section>
             </>
           )}

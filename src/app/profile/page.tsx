@@ -14,11 +14,11 @@ import { PageScaffold } from "@/components/ui/PageScaffold";
 
 type Status = "loading" | "ready" | "missing-token" | "error";
 
-const mealTypes: { value: MealType; label: string }[] = [
-  { value: "breakfast", label: "Petit-déjeuner" },
-  { value: "lunch", label: "Déjeuner" },
-  { value: "dinner", label: "Dîner" },
-  { value: "snack", label: "Collation" }
+const mealTypes: { value: MealType; label: string; hint: string }[] = [
+  { value: "breakfast", label: "Petit-déjeuner", hint: "Matin" },
+  { value: "lunch", label: "Déjeuner", hint: "Midi" },
+  { value: "dinner", label: "Dîner", hint: "Soir" },
+  { value: "snack", label: "Collation", hint: "Optionnel" }
 ];
 
 const equipments = [
@@ -150,76 +150,101 @@ export default function ProfilePage() {
 
       {status === "ready" && (
         <form className="panel form-panel profile-form-panel" onSubmit={handleSubmit}>
-          <div className="profile-form-grid">
+          <section className="profile-section">
+            <div className="section-heading">
+              <h2>Informations</h2>
+              <p>Utilisées pour ajuster les portions et personnaliser les repas.</p>
+            </div>
+            <div className="profile-identity-grid">
+              <label>
+                Prénom
+                <input value={form.firstname} onChange={(event) => setForm((current) => ({ ...current, firstname: event.target.value }))} />
+              </label>
+              <label>
+                Nom
+                <input value={form.lastname} onChange={(event) => setForm((current) => ({ ...current, lastname: event.target.value }))} />
+              </label>
+              <label>
+                Nombre de personnes
+                <input
+                  min="1"
+                  type="number"
+                  value={form.householdSize}
+                  onChange={(event) => setForm((current) => ({ ...current, householdSize: Number(event.target.value) }))}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="profile-section">
+            <div className="section-heading">
+              <h2>Repas pris en compte</h2>
+              <p>Choisissez les créneaux à utiliser dans le planning et les listes de courses.</p>
+            </div>
+            <div className="meal-toggle-grid">
+              {mealTypes.map((meal) => {
+                const active = form.enabledMealTypes.includes(meal.value);
+                return (
+                  <button
+                    key={meal.value}
+                    type="button"
+                    className={active ? "meal-toggle active" : "meal-toggle"}
+                    aria-pressed={active}
+                    onClick={() => setForm((current) => ({ ...current, enabledMealTypes: toggleValue(current.enabledMealTypes, meal.value) }))}
+                  >
+                    <strong>{meal.label}</strong>
+                    <span>{meal.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="profile-section">
+            <div className="section-heading">
+              <h2>Équipements disponibles</h2>
+              <p>Sélection rapide pour filtrer les recettes adaptées.</p>
+            </div>
+            <div className="chip-toggle-row">
+              {equipments.map((equipment) => {
+                const active = form.availableEquipments.includes(equipment.value);
+                return (
+                  <button
+                    key={equipment.value}
+                    type="button"
+                    className={active ? "chip-toggle active" : "chip-toggle"}
+                    aria-pressed={active}
+                    onClick={() => setForm((current) => ({ ...current, availableEquipments: toggleValue(current.availableEquipments, equipment.value) }))}
+                  >
+                    {equipment.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="profile-section profile-list-fields">
             <label>
-              Prénom
-              <input value={form.firstname} onChange={(event) => setForm((current) => ({ ...current, firstname: event.target.value }))} />
-            </label>
-            <label>
-              Nom
-              <input value={form.lastname} onChange={(event) => setForm((current) => ({ ...current, lastname: event.target.value }))} />
-            </label>
-            <label>
-              Nombre de personnes
+              Préférences alimentaires
               <input
-                min="1"
-                type="number"
-                value={form.householdSize}
-                onChange={(event) => setForm((current) => ({ ...current, householdSize: Number(event.target.value) }))}
+                value={dietaryPreferencesInput}
+                onChange={(event) => setDietaryPreferencesInput(event.target.value)}
+                placeholder="végétarien, sans lactose"
               />
             </label>
+
+            <label>
+              Allergies
+              <input value={allergiesInput} onChange={(event) => setAllergiesInput(event.target.value)} placeholder="arachides, gluten" />
+            </label>
+          </section>
+
+          <div className="profile-save-row">
+            <button className="primary-action" type="submit" disabled={isSaving}>
+              {isSaving ? <Loader2 size={17} /> : <Save size={17} />}
+              Enregistrer le profil
+            </button>
           </div>
-
-          <div>
-            <h2>Repas pris en compte</h2>
-            <div className="toggle-grid">
-              {mealTypes.map((meal) => (
-                <label key={meal.value}>
-                  <input
-                    checked={form.enabledMealTypes.includes(meal.value)}
-                    type="checkbox"
-                    onChange={() => setForm((current) => ({ ...current, enabledMealTypes: toggleValue(current.enabledMealTypes, meal.value) }))}
-                  />
-                  {meal.label}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2>Équipements disponibles</h2>
-            <div className="toggle-grid">
-              {equipments.map((equipment) => (
-                <label key={equipment.value}>
-                  <input
-                    checked={form.availableEquipments.includes(equipment.value)}
-                    type="checkbox"
-                    onChange={() => setForm((current) => ({ ...current, availableEquipments: toggleValue(current.availableEquipments, equipment.value) }))}
-                  />
-                  {equipment.label}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <label>
-            Préférences alimentaires
-            <input
-              value={dietaryPreferencesInput}
-              onChange={(event) => setDietaryPreferencesInput(event.target.value)}
-              placeholder="végétarien, sans lactose"
-            />
-          </label>
-
-          <label>
-            Allergies
-            <input value={allergiesInput} onChange={(event) => setAllergiesInput(event.target.value)} placeholder="arachides, gluten" />
-          </label>
-
-          <button className="primary-action" type="submit" disabled={isSaving}>
-            {isSaving ? <Loader2 size={17} /> : <Save size={17} />}
-            Enregistrer le profil
-          </button>
         </form>
       )}
     </PageScaffold>

@@ -1,5 +1,5 @@
 import { Info, ShieldCheck, Sparkles } from "lucide-react";
-import { Recipe } from "@/types/domain";
+import type { Recipe } from "@/types/domain";
 
 function group(recipes: Recipe[], missingCount: number) {
   return recipes.filter((recipe) => (recipe.missingCount || 0) === missingCount).slice(0, 3);
@@ -7,10 +7,10 @@ function group(recipes: Recipe[], missingCount: number) {
 
 export function RecipeSuggestions({ recipes }: { recipes: Recipe[] }) {
   const sections = [
-    { title: "Vous avez tous les ingrédients", subtitle: "12", tone: "ready", items: group(recipes, 0), icon: ShieldCheck },
-    { title: "Il manque 1 ingrédient", subtitle: "8", tone: "warn", items: group(recipes, 1), icon: Sparkles },
-    { title: "Il manque 2 ingrédients", subtitle: "5", tone: "warn", items: group(recipes, 2), icon: Sparkles },
-    { title: "Il manque 3 ingrédients", subtitle: "3", tone: "danger", items: group(recipes, 3), icon: Sparkles }
+    { title: "Vous avez tous les ingrédients", tone: "ready", items: group(recipes, 0), icon: ShieldCheck },
+    { title: "Il manque 1 ingrédient", tone: "warn", items: group(recipes, 1), icon: Sparkles },
+    { title: "Il manque 2 ingrédients", tone: "warn", items: group(recipes, 2), icon: Sparkles },
+    { title: "Il manque 3 ingrédients", tone: "danger", items: group(recipes, 3), icon: Sparkles }
   ];
 
   return (
@@ -26,19 +26,23 @@ export function RecipeSuggestions({ recipes }: { recipes: Recipe[] }) {
         <div className="suggestion-group" key={section.title}>
           <h3 className={section.tone}>
             <section.icon size={16} />
-            {section.title} ({section.subtitle})
+            {section.title} ({section.items.length})
           </h3>
-          <div className="recipe-row">
-            {section.items.map((recipe) => (
-              <article className="recipe-mini" key={recipe.externalId || recipe._id || recipe.title}>
-                {recipe.image ? <img src={recipe.image} alt="" /> : <div className="recipe-image-placeholder">Mealizy</div>}
-                <strong>{recipe.title}</strong>
-              </article>
-            ))}
-          </div>
+          {section.items.length === 0 ? (
+            <div className="shopping-empty">Aucune recette dans cette catégorie.</div>
+          ) : (
+            <div className="recipe-row">
+              {section.items.map((recipe) => (
+                <article className="recipe-mini" key={recipe.externalId || recipe._id || recipe.title}>
+                  {recipe.image ? <img src={recipe.image} alt="" /> : <div className="recipe-image-placeholder">Mealizy</div>}
+                  <strong>{recipe.title}</strong>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       ))}
-      <a className="outline-action" href="/recipes">Voir plus de suggestions</a>
+      <a className="outline-action" href="/recipes/suggestions">Voir plus de suggestions</a>
     </section>
   );
 }

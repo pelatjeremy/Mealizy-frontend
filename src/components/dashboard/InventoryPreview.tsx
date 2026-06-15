@@ -18,35 +18,36 @@ function formatExpirationDate(value?: string) {
 }
 
 export function InventoryPreview({ items }: { items: InventoryItem[] }) {
+  const previewItems = items.slice(0, 5);
+
   return (
     <section className="panel">
       <div className="panel-header compact">
         <h2>Inventaire</h2>
         <a href="/inventory">Voir tout</a>
       </div>
-      <div className="chips">
-        {["Tout", "Fruits & Légumes", "Épicerie", "Produits laitiers", "Viandes & Poissons", "Autres"].map((chip, index) => (
-          <span className={index === 0 ? "chip active" : "chip"} key={chip}>{chip}</span>
-        ))}
-      </div>
-      <table className="data-table">
-        <thead>
-          <tr><th>Produit</th><th>Quantité</th><th>Catégorie</th><th>Date de péremption</th></tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => {
-            const Icon = icons[index] || Package2;
-            return (
-              <tr key={item.id}>
-                <td><Icon size={20} /> {item.name}</td>
-                <td>{item.quantity} {item.unit}</td>
-                <td>{categoryLabels[item.category] || item.category}</td>
-                <td>{formatExpirationDate(item.expirationDate)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {previewItems.length === 0 ? (
+        <div className="shopping-empty">Aucun produit dans l'inventaire.</div>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr><th>Produit</th><th>Quantité</th><th>Catégorie</th><th>Date de péremption</th></tr>
+          </thead>
+          <tbody>
+            {previewItems.map((item, index) => {
+              const Icon = icons[index] || Package2;
+              return (
+                <tr key={item.id}>
+                  <td><Icon size={20} /> {item.name}</td>
+                  <td>{item.quantity} {item.unit}</td>
+                  <td>{categoryLabels[item.category] || item.category}</td>
+                  <td>{formatExpirationDate(item.expirationDate)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }
