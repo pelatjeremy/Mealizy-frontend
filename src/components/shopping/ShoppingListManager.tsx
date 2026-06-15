@@ -99,7 +99,7 @@ export function ShoppingListManager() {
     try {
       const list = await updateShoppingListItemChecked(token, item.id, checked);
       setShoppingList(list);
-      setNotice(checked ? "Article ajouté à l'inventaire." : "Article remis dans la liste à acheter.");
+      setNotice(checked ? "Article ajouté à l'inventaire." : "Article retiré de l'inventaire.");
     } catch (caughtError) {
       setShoppingList((current) =>
         current
@@ -109,7 +109,7 @@ export function ShoppingListManager() {
             }
           : current
       );
-      setError(getApiErrorMessage(caughtError, "Impossible d'ajouter cet article à l'inventaire."));
+      setError(getApiErrorMessage(caughtError, checked ? "Impossible d'ajouter cet article à l'inventaire." : "Impossible de retirer cet article de l'inventaire."));
       setStatus("error");
     } finally {
       setBusyItemId(null);
