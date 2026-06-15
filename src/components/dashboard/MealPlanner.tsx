@@ -2,15 +2,15 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Apple, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2 } from "lucide-react";
-import { deleteMealPlan, getMealPlans, getProfile, readAuthToken, updateMealPlan } from "@/lib/api";
+import { deleteMealPlan, getApiErrorMessage, getMealPlans, getProfile, readAuthToken, updateMealPlan } from "@/lib/api";
 import type { MealPlan, MealPlanDay, MealType, UserProfile } from "@/types/domain";
 
 const dayKeys: MealPlanDay[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const dayLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const mealRows: { key: MealType; label: string; icon: typeof Coffee }[] = [
-  { key: "breakfast", label: "Petit-dejeuner", icon: Coffee },
-  { key: "lunch", label: "Dejeuner", icon: Sun },
-  { key: "dinner", label: "Diner", icon: Moon },
+  { key: "breakfast", label: "Petit-déjeuner", icon: Coffee },
+  { key: "lunch", label: "Déjeuner", icon: Sun },
+  { key: "dinner", label: "Dîner", icon: Moon },
   { key: "snack", label: "Collation", icon: Apple }
 ];
 
@@ -83,6 +83,7 @@ export function MealPlanner() {
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [weekStart, setWeekStart] = useState(() => getMonday());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
+  const [error, setError] = useState("");
   const week = formatDateInput(weekStart);
 
   const visibleMeals = useMemo(() => {
@@ -100,12 +101,14 @@ export function MealPlanner() {
   const loadWeek = useCallback(
     async (authToken: string) => {
       setStatus("loading");
+      setError("");
       try {
         const [userProfile, weekPlans] = await Promise.all([getProfile(authToken), getMealPlans(authToken, week)]);
         setProfile(userProfile);
         setPlans(weekPlans);
         setStatus("ready");
-      } catch {
+      } catch (caughtError) {
+        setError(getApiErrorMessage(caughtError, "Impossible de récupérer le planning."));
         setStatus("error");
       }
     },
@@ -127,7 +130,8 @@ export function MealPlanner() {
     try {
       await deleteMealPlan(token, plan._id);
       setPlans((items) => items.filter((item) => item._id !== plan._id));
-    } catch {
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Impossible de supprimer ce repas."));
       setStatus("error");
     }
   }
@@ -140,7 +144,8 @@ export function MealPlanner() {
     try {
       const updated = await updateMealPlan(token, plan._id, { servings: Number(value) });
       setPlans((items) => items.map((item) => (item._id === updated._id ? updated : item)));
-    } catch {
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Impossible de modifier les portions."));
       setStatus("error");
     }
   }
@@ -150,7 +155,7 @@ export function MealPlanner() {
       <div className="panel-header">
         <h2>Planning des repas</h2>
         <div className="week-switcher">
-          <button type="button" aria-label="Semaine precedente" onClick={() => setWeekStart((date) => addWeeks(date, -1))}>
+          <button type="button" aria-label="Semaine précédente" onClick={() => setWeekStart((date) => addWeeks(date, -1))}>
             <ChevronLeft size={17} />
           </button>
           <span>{formatWeekRange(weekStart)}</span>
@@ -165,30 +170,33 @@ export function MealPlanner() {
 
       {status === "loading" && <div className="state-panel"><Loader2 size={22} /> Chargement du planning</div>}
       {status === "missing-token" && <div className="state-panel"><CircleAlert size={22} /> Connectez-vous pour voir votre planning.</div>}
-      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> Impossible de recuperer le planning.</div>}
+      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> {error || "Impossible de récupérer le planning."}</div>}
 
       {status === "ready" && (
         <>
-          {plans.length === 0 && <div className="state-panel">Aucun repas planifie pour cette semaine.</div>}
-          <div className="meal-grid full-meal-grid">
-            <div className="grid-spacer" />
-            {dayLabels.map((day) => <strong className="day-label" key={day}>{day}</strong>)}
-            {visibleMeals.map((meal) => (
-              <Fragment key={meal.key}>
-                <div className="meal-label">
-                  <meal.icon size={22} />
-                  <span>{meal.label}</span>
-                </div>
-                {dayKeys.map((day) => (
-                  <MealSlot
-                    key={planKey(day, meal.key)}
-                    plan={planMap[planKey(day, meal.key)]}
-                    onDelete={handleDelete}
-                    onUpdateServings={handleUpdateServings}
-                  />
-                ))}
-              </Fragment>
-            ))}
+          {plans.length === 0 && <div className="state-panel">Aucun repas planifié pour cette semaine.</div>}
+          <div className="scroll-hint">Faites défiler le planning horizontalement.</div>
+          <div className="meal-grid-scroll">
+            <div className="meal-grid full-meal-grid">
+              <div className="grid-spacer" />
+              {dayLabels.map((day) => <strong className="day-label" key={day}>{day}</strong>)}
+              {visibleMeals.map((meal) => (
+                <Fragment key={meal.key}>
+                  <div className="meal-label">
+                    <meal.icon size={22} />
+                    <span>{meal.label}</span>
+                  </div>
+                  {dayKeys.map((day) => (
+                    <MealSlot
+                      key={planKey(day, meal.key)}
+                      plan={planMap[planKey(day, meal.key)]}
+                      onDelete={handleDelete}
+                      onUpdateServings={handleUpdateServings}
+                    />
+                  ))}
+                </Fragment>
+              ))}
+            </div>
           </div>
         </>
       )}

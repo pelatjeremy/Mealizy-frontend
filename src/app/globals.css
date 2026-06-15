@@ -142,6 +142,28 @@ select {
   font-weight: 900;
 }
 
+.session-loader {
+  display: grid;
+  min-height: calc(100vh - 72px);
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.session-loader svg,
+.state-panel .lucide-loader-circle,
+.primary-action .lucide-loader-circle {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .user-card img {
   object-fit: cover;
 }
@@ -328,8 +350,19 @@ select {
   display: grid;
   grid-template-columns: 112px repeat(7, minmax(96px, 1fr));
   gap: 8px;
+  padding-bottom: 4px;
+}
+
+.meal-grid-scroll {
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+.scroll-hint {
+  display: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .full-meal-grid {
@@ -829,6 +862,15 @@ select {
   border-radius: 0;
 }
 
+.recipe-image-placeholder {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-weight: 900;
+}
+
 .recipe-card div {
   display: grid;
   gap: 5px;
@@ -840,8 +882,35 @@ select {
 }
 
 .recipe-card span,
+.recipe-card small,
 .empty-state p {
   color: var(--muted);
+}
+
+.recipe-form-panel {
+  max-width: none;
+}
+
+.recipe-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.recipe-ingredients-field {
+  grid-column: 1 / -1;
+}
+
+.recipe-ingredients-field textarea {
+  min-height: 118px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.recipe-form .primary-action {
+  justify-self: start;
 }
 
 .suggestion-categories {
@@ -970,12 +1039,70 @@ select {
 }
 
 .form-panel input,
+.form-panel select,
 .auth-card input {
   height: 44px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: white;
+}
+
+.inventory-form-panel {
+  max-width: none;
+}
+
+.inventory-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(120px, 0.5fr) minmax(120px, 0.5fr) minmax(180px, 0.8fr) minmax(160px, 0.7fr);
+  align-items: end;
+  gap: 14px;
+}
+
+.inventory-form-actions,
+.inventory-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inventory-count {
+  display: grid;
+  min-width: 34px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.inventory-table {
+  min-width: 760px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.inventory-table th:last-child,
+.inventory-table td:last-child {
+  width: 240px;
+}
+
+.danger-action {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.profile-form-panel {
+  max-width: none;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .toggle-grid {
@@ -1100,16 +1227,24 @@ select {
   }
 
   .nav-list {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 
   .nav-item {
+    flex: 0 0 auto;
     min-height: 46px;
     justify-content: center;
+    gap: 8px;
+    padding: 0 12px;
+    white-space: nowrap;
   }
 
   .nav-item span {
-    display: none;
+    display: inline;
+    font-size: 13px;
   }
 
   .user-card {
@@ -1140,6 +1275,22 @@ select {
     align-items: stretch;
   }
 
+  .scroll-hint {
+    display: block;
+  }
+
+  .inventory-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-form {
+    grid-template-columns: 1fr;
+  }
+
   .shopping-week-controls,
   .shopping-callout {
     justify-content: stretch;
@@ -1167,6 +1318,12 @@ select {
 
   .shopping-list-row .outline-action {
     grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .inventory-form-actions .primary-action,
+  .inventory-form-actions .outline-action,
+  .inventory-row-actions .outline-action {
     width: 100%;
   }
 

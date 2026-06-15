@@ -30,8 +30,8 @@ export function RecipeSuggestions({ recipes }: { recipes: Recipe[] }) {
           </h3>
           <div className="recipe-row">
             {section.items.map((recipe) => (
-              <article className="recipe-mini" key={recipe.externalId}>
-                <img src={recipe.image} alt="" />
+              <article className="recipe-mini" key={recipe.externalId || recipe._id || recipe.title}>
+                {recipe.image ? <img src={recipe.image} alt="" /> : <div className="recipe-image-placeholder">Mealizy</div>}
                 <strong>{recipe.title}</strong>
               </article>
             ))}

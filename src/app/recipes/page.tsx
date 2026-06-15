@@ -1,150 +1,102 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarPlus, Search, X } from "lucide-react";
-import { createMealPlan, getProfile, readAuthToken } from "@/lib/api";
-import { recipes } from "@/lib/demo-data";
-import type { MealPlanDay, MealType, Recipe, UserProfile } from "@/types/domain";
+import { useCallback, useEffect, useState } from "react";
+import { CalendarPlus, CircleAlert, Loader2, Search } from "lucide-react";
+import { getApiErrorMessage, getProfile, readAuthToken, searchRecipes } from "@/lib/api";
+import type { Recipe, UserProfile } from "@/types/domain";
 import { PageScaffold } from "@/components/ui/PageScaffold";
+import { recipeId, RecipePlanningModal } from "@/components/recipes/RecipePlanningModal";
 
-const days: { key: MealPlanDay; label: string }[] = [
-  { key: "monday", label: "Lundi" },
-  { key: "tuesday", label: "Mardi" },
-  { key: "wednesday", label: "Mercredi" },
-  { key: "thursday", label: "Jeudi" },
-  { key: "friday", label: "Vendredi" },
-  { key: "saturday", label: "Samedi" },
-  { key: "sunday", label: "Dimanche" }
-];
-
-const mealTypes: { key: MealType; label: string }[] = [
-  { key: "breakfast", label: "Petit-dejeuner" },
-  { key: "lunch", label: "Dejeuner" },
-  { key: "dinner", label: "Diner" },
-  { key: "snack", label: "Collation" }
-];
-
-function getMonday() {
-  const date = new Date();
-  const day = date.getDay() || 7;
-  date.setDate(date.getDate() - day + 1);
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString().slice(0, 10);
+function recipeKey(recipe: Recipe) {
+  return recipe.externalId || recipe._id || recipe.id || recipe.title;
 }
 
-function recipeSource(recipe: Recipe): "api" | "user" | "demo" {
-  return recipe.source || (recipe.externalId?.startsWith("demo-") ? "demo" : "user");
+function RecipeImage({ recipe }: { recipe: Recipe }) {
+  if (!recipe.image) return <div className="recipe-image-placeholder">Mealizy</div>;
+  return <img src={recipe.image} alt="" />;
 }
 
-function recipeId(recipe: Recipe) {
-  return recipe.externalId || recipe._id || recipe.id || "";
-}
-
-function PlanningModal({
-  recipe,
-  profile,
-  token,
-  onClose
-}: {
-  recipe: Recipe;
-  profile: UserProfile | null;
-  token: string;
-  onClose: () => void;
-}) {
-  const enabledMealTypes = profile?.enabledMealTypes?.length ? profile.enabledMealTypes : mealTypes.map((meal) => meal.key);
-  const visibleMealTypes = mealTypes.filter((meal) => enabledMealTypes.includes(meal.key));
-  const [weekStartDate, setWeekStartDate] = useState(getMonday());
-  const [day, setDay] = useState<MealPlanDay>("monday");
-  const [mealType, setMealType] = useState<MealType>(visibleMealTypes[0]?.key || "lunch");
-  const [servings, setServings] = useState(profile?.householdSize || recipe.servings || 1);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus("saving");
-    try {
-      await createMealPlan(token, {
-        weekStartDate,
-        day,
-        mealType,
-        recipeId: recipeId(recipe),
-        recipeSource: recipeSource(recipe),
-        servings
-      });
-      setStatus("saved");
-      window.setTimeout(onClose, 650);
-    } catch {
-      setStatus("error");
-    }
-  }
-
+function RecipeMeta({ recipe }: { recipe: Recipe }) {
+  const calories = recipe.nutrition?.calories || 0;
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <form className="planning-modal" onSubmit={handleSubmit}>
-        <header>
-          <div>
-            <h2>Ajouter au planning</h2>
-            <p>{recipe.title}</p>
-          </div>
-          <button type="button" aria-label="Fermer" onClick={onClose}><X size={18} /></button>
-        </header>
-        <label>Semaine<input type="date" value={weekStartDate} onChange={(event) => setWeekStartDate(event.target.value)} /></label>
-        <label>Jour
-          <select value={day} onChange={(event) => setDay(event.target.value as MealPlanDay)}>
-            {days.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-          </select>
-        </label>
-        <label>Type de repas
-          <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
-            {visibleMealTypes.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-          </select>
-        </label>
-        <label>Portions<input min="1" type="number" value={servings} onChange={(event) => setServings(Number(event.target.value))} /></label>
-        <button className="primary-action" type="submit" disabled={status === "saving"}><CalendarPlus size={17} /> Enregistrer</button>
-        {status === "saved" && <p className="form-note ready">Repas ajoute.</p>}
-        {status === "error" && <p className="form-note danger">Impossible d'ajouter ce repas.</p>}
-      </form>
-    </div>
+    <span>
+      {recipe.preparationTime || 0} min - {calories} kcal - {recipe.servings || 1} portions
+    </span>
   );
+}
+
+function IngredientSummary({ recipe }: { recipe: Recipe }) {
+  const ingredients = recipe.ingredients || [];
+  if (!ingredients.length) return <small>Ingrédients non renseignés.</small>;
+  return <small>{ingredients.slice(0, 4).map((ingredient) => ingredient.ingredientName).join(", ")}{ingredients.length > 4 ? "..." : ""}</small>;
 }
 
 export default function RecipesPage() {
   const [query, setQuery] = useState("");
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
 
-  const filteredRecipes = useMemo(() => {
-    return recipes.filter((recipe) => recipe.title.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
-  }, [query]);
+  const loadRecipes = useCallback(async (nextQuery: string, authToken: string) => {
+    setStatus("loading");
+    setError("");
+    try {
+      const results = await searchRecipes(nextQuery, authToken);
+      setRecipes(results);
+      setStatus("ready");
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Impossible de récupérer les recettes."));
+      setStatus("error");
+    }
+  }, []);
 
   useEffect(() => {
     const authToken = readAuthToken();
     setToken(authToken);
-    if (!authToken) return;
-    getProfile(authToken).then(setProfile).catch(() => setProfile(null));
-  }, []);
+    loadRecipes("", authToken);
+    if (authToken) getProfile(authToken).then(setProfile).catch(() => setProfile(null));
+  }, [loadRecipes]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => loadRecipes(query, token), 250);
+    return () => window.clearTimeout(timeout);
+  }, [loadRecipes, query, token]);
 
   return (
-    <PageScaffold title="Recettes" description="Explorez les recettes compatibles avec votre inventaire et vos equipements.">
-      <div className="search-bar"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher une recette ou un ingredient" /></div>
+    <PageScaffold title="Recettes" description="Explorez les recettes disponibles et ajoutez-les au planning.">
+      <div className="search-bar"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher une recette ou un ingrédient" /></div>
       {!token && <div className="state-panel">Connectez-vous pour ajouter une recette au planning.</div>}
-      <section className="recipe-catalog">
-        {filteredRecipes.map((recipe) => (
-          <article className="recipe-card" key={recipe.externalId}>
-            <img src={recipe.image} alt="" />
-            <div>
-              <strong>{recipe.title}</strong>
-              <span>{recipe.preparationTime} min · {recipe.nutrition.calories} kcal · {recipe.servings} portions</span>
-              <button className="outline-action" type="button" disabled={!token} onClick={() => setSelectedRecipe(recipe)}>
-                <CalendarPlus size={17} /> Ajouter au planning
-              </button>
-            </div>
-          </article>
-        ))}
-      </section>
+      {status === "loading" && <div className="state-panel"><Loader2 size={22} /> Chargement des recettes</div>}
+      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> {error}</div>}
+
+      {status === "ready" && recipes.length === 0 && <div className="state-panel">Aucune recette trouvée.</div>}
+
+      {status === "ready" && recipes.length > 0 && (
+        <section className="recipe-catalog">
+          {recipes.map((recipe) => {
+            const canPlan = Boolean(token && recipeId(recipe));
+            return (
+              <article className="recipe-card" key={recipeKey(recipe)}>
+                <RecipeImage recipe={recipe} />
+                <div>
+                  <strong>{recipe.title}</strong>
+                  <RecipeMeta recipe={recipe} />
+                  <IngredientSummary recipe={recipe} />
+                  <button className="outline-action" type="button" disabled={!canPlan} onClick={() => setSelectedRecipe(recipe)}>
+                    <CalendarPlus size={17} /> Ajouter au planning
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
       {selectedRecipe && token && (
-        <PlanningModal recipe={selectedRecipe} profile={profile} token={token} onClose={() => setSelectedRecipe(null)} />
+        <RecipePlanningModal recipe={selectedRecipe} profile={profile} token={token} onClose={() => setSelectedRecipe(null)} />
       )}
     </PageScaffold>
   );

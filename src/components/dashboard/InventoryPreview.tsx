@@ -1,7 +1,21 @@
 import { Apple, Egg, Milk, Package2 } from "lucide-react";
-import { InventoryItem } from "@/types/domain";
+import type { InventoryItem } from "@/types/domain";
 
 const icons = [Apple, Egg, Package2, Package2, Milk];
+const categoryLabels: Record<string, string> = {
+  "fruits-legumes": "Fruits & Légumes",
+  epicerie: "Épicerie",
+  "produits-laitiers": "Produits laitiers",
+  "viandes-poissons": "Viandes & Poissons",
+  surgeles: "Surgelés",
+  autres: "Autres"
+};
+
+function formatExpirationDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("fr-FR");
+}
 
 export function InventoryPreview({ items }: { items: InventoryItem[] }) {
   return (
@@ -26,8 +40,8 @@ export function InventoryPreview({ items }: { items: InventoryItem[] }) {
               <tr key={item.id}>
                 <td><Icon size={20} /> {item.name}</td>
                 <td>{item.quantity} {item.unit}</td>
-                <td>{item.category}</td>
-                <td>{new Date(item.expirationDate).toLocaleDateString("fr-FR")}</td>
+                <td>{categoryLabels[item.category] || item.category}</td>
+                <td>{formatExpirationDate(item.expirationDate)}</td>
               </tr>
             );
           })}

@@ -5,6 +5,7 @@ import { CircleAlert, Loader2, RefreshCw } from "lucide-react";
 import {
   addShoppingListItemToInventory,
   generateShoppingList,
+  getApiErrorMessage,
   getShoppingList,
   readAuthToken,
   updateShoppingListItemChecked
@@ -28,6 +29,7 @@ export function ShoppingListManager() {
   const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -39,11 +41,13 @@ export function ShoppingListManager() {
     async (authToken: string) => {
       setStatus("loading");
       setNotice("");
+      setError("");
       try {
         const list = await getShoppingList(authToken, week);
         setShoppingList(list);
         setStatus("ready");
-      } catch {
+      } catch (caughtError) {
+        setError(getApiErrorMessage(caughtError, "Impossible de récupérer la liste de courses."));
         setStatus("error");
       }
     },
@@ -64,11 +68,13 @@ export function ShoppingListManager() {
     if (!token) return;
     setIsGenerating(true);
     setNotice("");
+    setError("");
     try {
       await generateShoppingList(token, week);
       await loadList(token);
       setNotice("Liste de courses générée avec succès.");
-    } catch {
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Impossible de générer la liste de courses."));
       setStatus("error");
     } finally {
       setIsGenerating(false);
@@ -79,6 +85,7 @@ export function ShoppingListManager() {
     if (!token || !item.id) return;
 
     setBusyItemId(item.id);
+    setError("");
     setShoppingList((current) =>
       current
         ? {
@@ -91,7 +98,7 @@ export function ShoppingListManager() {
     try {
       const list = await updateShoppingListItemChecked(token, item.id, checked);
       setShoppingList(list);
-    } catch {
+    } catch (caughtError) {
       setShoppingList((current) =>
         current
           ? {
@@ -100,6 +107,7 @@ export function ShoppingListManager() {
             }
           : current
       );
+      setError(getApiErrorMessage(caughtError, "Impossible de mettre à jour l'article."));
       setStatus("error");
     } finally {
       setBusyItemId(null);
@@ -110,11 +118,13 @@ export function ShoppingListManager() {
     if (!token || !item.id) return;
     setBusyItemId(item.id);
     setNotice("");
+    setError("");
     try {
       const list = await addShoppingListItemToInventory(token, item.id);
       setShoppingList(list);
       setNotice(`${item.ingredientName} ajouté à l'inventaire.`);
-    } catch {
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Impossible d'ajouter cet article à l'inventaire."));
       setStatus("error");
     } finally {
       setBusyItemId(null);
@@ -156,7 +166,7 @@ export function ShoppingListManager() {
       {notice && <div className="state-panel success-state">{notice}</div>}
       {status === "loading" && <div className="state-panel"><Loader2 size={22} /> Chargement de la liste...</div>}
       {status === "missing-token" && <div className="state-panel"><CircleAlert size={22} /> Connectez-vous pour gérer votre liste de courses.</div>}
-      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> Impossible de récupérer la liste de courses.</div>}
+      {status === "error" && <div className="state-panel"><CircleAlert size={22} /> {error || "Impossible de récupérer la liste de courses."}</div>}
 
       {status === "ready" && (
         <div className="shopping-sections">

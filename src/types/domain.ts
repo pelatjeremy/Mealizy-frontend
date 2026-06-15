@@ -6,19 +6,23 @@ export type RecipeIngredient = {
   quantity: number;
   unit: string;
   category: string;
+  requiredQuantity?: number;
+  availableQuantity?: number;
+  isAvailable?: boolean;
 };
 
 export type Recipe = {
   _id?: string;
   id?: string;
   source?: "api" | "user" | "demo";
-  externalId: string;
+  externalId?: string;
   title: string;
-  image: string;
+  image?: string;
   preparationTime: number;
   servings: number;
   missingCount?: number;
   missingIngredients?: RecipeIngredient[];
+  availableIngredients?: RecipeIngredient[];
   nutrition: {
     calories: number;
     protein: number;
@@ -42,7 +46,7 @@ export type InventoryItem = {
   quantity: number;
   unit: string;
   category: string;
-  expirationDate: string;
+  expirationDate?: string;
 };
 
 export type ShoppingItem = {
@@ -71,6 +75,9 @@ export type UserProfile = {
   email: string;
   householdSize?: number;
   enabledMealTypes: MealType[];
+  availableEquipments?: string[];
+  dietaryPreferences?: string[];
+  allergies?: string[];
 };
 
 export type MealPlanDay =

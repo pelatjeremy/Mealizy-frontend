@@ -15,7 +15,7 @@ export default async function DashboardPage() {
       <main className="main-column">
         <header className="page-header">
           <div>
-            <h1>Tableau de bord 👋</h1>
+            <h1>Tableau de bord</h1>
             <p>Voici un aperçu de votre semaine et de votre inventaire.</p>
           </div>
           <button className="icon-button" aria-label="Notifications">
