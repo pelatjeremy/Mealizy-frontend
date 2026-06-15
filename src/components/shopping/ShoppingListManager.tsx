@@ -85,6 +85,7 @@ export function ShoppingListManager() {
     if (!token || !item.id) return;
 
     setBusyItemId(item.id);
+    setNotice("");
     setError("");
     setShoppingList((current) =>
       current
@@ -98,6 +99,7 @@ export function ShoppingListManager() {
     try {
       const list = await updateShoppingListItemChecked(token, item.id, checked);
       setShoppingList(list);
+      setNotice(checked ? "Article ajouté à l'inventaire." : "Article remis dans la liste à acheter.");
     } catch (caughtError) {
       setShoppingList((current) =>
         current
@@ -107,7 +109,7 @@ export function ShoppingListManager() {
             }
           : current
       );
-      setError(getApiErrorMessage(caughtError, "Impossible de mettre à jour l'article."));
+      setError(getApiErrorMessage(caughtError, "Impossible d'ajouter cet article à l'inventaire."));
       setStatus("error");
     } finally {
       setBusyItemId(null);
@@ -122,7 +124,7 @@ export function ShoppingListManager() {
     try {
       const list = await addShoppingListItemToInventory(token, item.id);
       setShoppingList(list);
-      setNotice(`${item.ingredientName} ajouté à l'inventaire.`);
+      setNotice("Article ajouté à l'inventaire.");
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible d'ajouter cet article à l'inventaire."));
       setStatus("error");
