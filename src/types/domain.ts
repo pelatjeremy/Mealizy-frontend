@@ -93,10 +93,13 @@ export type MealPlanRecipe = {
   id: string;
   source: "api" | "user" | "demo";
   title: string;
-  image: string;
+  image?: string;
   preparationTime: number;
   calories: number;
   servings: number;
+  ingredients?: RecipeIngredient[];
+  instructions?: string[];
+  nutrition?: Recipe["nutrition"];
 };
 
 export type MealPlan = {

@@ -1,9 +1,9 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Apple, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2 } from "lucide-react";
+import { Apple, ChefHat, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2, X } from "lucide-react";
 import { deleteMealPlan, getApiErrorMessage, getMealPlans, getProfile, readAuthToken, updateMealPlan } from "@/lib/api";
-import type { MealPlan, MealPlanDay, MealType, UserProfile } from "@/types/domain";
+import type { MealPlan, MealPlanDay, MealPlanRecipe, MealType, UserProfile } from "@/types/domain";
 
 const dayKeys: MealPlanDay[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const dayLabels = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -50,12 +50,81 @@ function planKey(day: MealPlanDay, mealType: MealType) {
   return `${day}:${mealType}`;
 }
 
+function NutritionLine({ recipe }: { recipe: MealPlanRecipe }) {
+  const nutrition = recipe.nutrition;
+  if (!nutrition) return null;
+
+  return (
+    <div className="cook-nutrition">
+      <span>{nutrition.calories || recipe.calories || 0} kcal</span>
+      <span>{nutrition.protein || 0} g protéines</span>
+      <span>{nutrition.carbs || 0} g glucides</span>
+      <span>{nutrition.fat || 0} g lipides</span>
+    </div>
+  );
+}
+
+function CookingModeModal({ plan, onClose }: { plan: MealPlan; onClose: () => void }) {
+  const recipe = plan.recipe;
+  if (!recipe) return null;
+
+  const ingredients = recipe.ingredients || [];
+  const instructions = recipe.instructions || [];
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <article className="cooking-modal">
+        <header>
+          <div>
+            <h2>{recipe.title}</h2>
+            <p>{plan.servings} portions · {recipe.preparationTime || 0} min</p>
+          </div>
+          <button type="button" aria-label="Fermer" onClick={onClose}><X size={18} /></button>
+        </header>
+
+        {recipe.image && <img className="cook-image" src={recipe.image} alt="" />}
+
+        <NutritionLine recipe={recipe} />
+
+        <section>
+          <h3>Ingrédients</h3>
+          {ingredients.length === 0 ? (
+            <p className="form-note">Ingrédients non disponibles pour cette recette.</p>
+          ) : (
+            <ul className="cook-list">
+              {ingredients.map((ingredient, index) => (
+                <li key={`${ingredient.ingredientName}-${index}`}>
+                  <strong>{ingredient.ingredientName}</strong>
+                  <span>{ingredient.quantity} {ingredient.unit}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <h3>Préparation</h3>
+          {instructions.length === 0 ? (
+            <p className="form-note">Étapes de préparation non disponibles pour cette recette.</p>
+          ) : (
+            <ol className="cook-steps">
+              {instructions.map((instruction, index) => <li key={`${instruction}-${index}`}>{instruction}</li>)}
+            </ol>
+          )}
+        </section>
+      </article>
+    </div>
+  );
+}
+
 function MealSlot({
   plan,
+  onCook,
   onDelete,
   onUpdateServings
 }: {
   plan?: MealPlan;
+  onCook: (plan: MealPlan) => void;
   onDelete: (plan: MealPlan) => void;
   onUpdateServings: (plan: MealPlan) => void;
 }) {
@@ -69,6 +138,9 @@ function MealSlot({
       <span>{plan.recipe?.calories || 0} kcal</span>
       <span>{plan.servings} portions</span>
       <div className="meal-actions">
+        <button type="button" aria-label="Cuisiner" onClick={() => onCook(plan)}>
+          <ChefHat size={15} />
+        </button>
         <button type="button" aria-label="Modifier les portions" onClick={() => onUpdateServings(plan)}>
           <Pencil size={15} />
         </button>
@@ -84,6 +156,7 @@ export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<MealPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
   const [weekStart, setWeekStart] = useState(() => getMonday());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
   const [error, setError] = useState("");
@@ -195,6 +268,7 @@ export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
                     <MealSlot
                       key={planKey(day, meal.key)}
                       plan={planMap[planKey(day, meal.key)]}
+                      onCook={setSelectedPlan}
                       onDelete={handleDelete}
                       onUpdateServings={handleUpdateServings}
                     />
@@ -203,6 +277,7 @@ export function MealPlanner({ onChanged }: { onChanged?: () => void }) {
               ))}
             </div>
           </div>
+          {selectedPlan && <CookingModeModal plan={selectedPlan} onClose={() => setSelectedPlan(null)} />}
         </>
       )}
     </section>
