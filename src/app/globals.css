@@ -877,6 +877,13 @@ select {
   padding: 14px;
 }
 
+.recipe-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+}
+
 .recipe-card .outline-action {
   margin-top: 8px;
 }
@@ -911,6 +918,28 @@ select {
 
 .recipe-form .primary-action {
   justify-self: start;
+}
+
+.recipe-editor-modal {
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 36px));
+  overflow-y: auto;
+}
+
+.recipe-editor-modal .recipe-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.recipe-editor-modal .form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.recipe-editor-modal .form-actions .primary-action,
+.recipe-editor-modal .form-actions .outline-action {
+  width: auto;
 }
 
 .suggestion-categories {

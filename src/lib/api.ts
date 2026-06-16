@@ -107,6 +107,21 @@ export async function createCustomRecipe(token: string, payload: RecipePayload) 
   });
 }
 
+export async function updateCustomRecipe(token: string, id: string, payload: RecipePayload) {
+  return request<Recipe>(`/recipes/${id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteCustomRecipe(token: string, id: string) {
+  await request<void>(`/recipes/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export function readAuthToken() {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("mealizy_token") || "";
