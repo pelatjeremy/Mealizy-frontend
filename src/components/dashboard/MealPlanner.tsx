@@ -176,6 +176,10 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [servingsPlan, setServingsPlan] = useState<MealPlan | null>(null);
+  const [servingsValue, setServingsValue] = useState("");
+  const [servingsError, setServingsError] = useState("");
+  const [isSavingServings, setIsSavingServings] = useState(false);
   const [internalWeekStart, setInternalWeekStart] = useState(() => getMonday());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
   const [error, setError] = useState("");
@@ -232,6 +236,33 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
     loadWeek(authToken);
   }, [loadWeek]);
 
+  const closeServingsModal = useCallback(() => {
+    if (isSavingServings) return;
+    setServingsPlan(null);
+    setServingsValue("");
+    setServingsError("");
+  }, [isSavingServings]);
+
+  useEffect(() => {
+    if (!servingsPlan) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeServingsModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeServingsModal, servingsPlan]);
+
+  function openServingsModal(plan: MealPlan) {
+    setOpenMenuId(null);
+    setServingsPlan(plan);
+    setServingsValue(String(plan.servings));
+    setServingsError("");
+  }
+
   async function handleDelete(plan: MealPlan) {
     if (!token) return;
     try {
@@ -245,19 +276,28 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
     }
   }
 
-  async function handleUpdateServings(plan: MealPlan) {
-    if (!token) return;
-    const value = window.prompt("Nombre de portions", String(plan.servings));
-    if (!value) return;
+  async function handleSaveServings() {
+    if (!token || !servingsPlan) return;
 
+    const parsedValue = Number(servingsValue);
+    if (!servingsValue.trim() || !Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setServingsError("Saisissez un nombre de portions supérieur à 0.");
+      return;
+    }
+
+    setIsSavingServings(true);
+    setServingsError("");
     try {
-      const updated = await updateMealPlan(token, plan._id, { servings: Number(value) });
+      const updated = await updateMealPlan(token, servingsPlan._id, { servings: parsedValue });
       setPlans((items) => items.map((item) => (item._id === updated._id ? updated : item)));
       setOpenMenuId(null);
+      setServingsPlan(null);
+      setServingsValue("");
       onChanged?.();
     } catch (caughtError) {
-      setError(getApiErrorMessage(caughtError, "Impossible de modifier les portions."));
-      setStatus("error");
+      setServingsError(getApiErrorMessage(caughtError, "Impossible d'enregistrer les portions. Réessayez dans un instant."));
+    } finally {
+      setIsSavingServings(false);
     }
   }
 
@@ -322,7 +362,7 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
                       onCook={handleCook}
                       onViewRecipe={handleViewRecipe}
                       onDelete={handleDelete}
-                      onUpdateServings={handleUpdateServings}
+                      onUpdateServings={openServingsModal}
                     />
                   ))}
                 </Fragment>
@@ -331,6 +371,56 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
           </div>
           {selectedPlan && <CookingModeModal plan={selectedPlan} onClose={() => setSelectedPlan(null)} />}
         </>
+      )}
+
+      {servingsPlan && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) closeServingsModal();
+        }}>
+          <div className="planning-modal" role="dialog" aria-modal="true" aria-labelledby="servings-modal-title">
+            <header>
+              <div>
+                <h2 id="servings-modal-title">Modifier les portions</h2>
+                <p>{servingsPlan.recipe?.title || "Recette"}</p>
+              </div>
+              <button type="button" aria-label="Fermer" onClick={closeServingsModal} disabled={isSavingServings}>
+                <X size={17} />
+              </button>
+            </header>
+            <form className="servings-form" noValidate onSubmit={(event) => {
+              event.preventDefault();
+              void handleSaveServings();
+            }}>
+              <p className="form-note">Portions actuelles : {servingsPlan.servings}</p>
+              <label>
+                Nouvelles portions
+                <input
+                  autoFocus
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  type="number"
+                  value={servingsValue}
+                  onChange={(event) => {
+                    setServingsValue(event.target.value);
+                    setServingsError("");
+                  }}
+                  aria-invalid={Boolean(servingsError)}
+                  aria-describedby={servingsError ? "servings-error" : undefined}
+                />
+              </label>
+              {servingsError && <p className="form-error" id="servings-error">{servingsError}</p>}
+              <div className="modal-actions">
+                <button type="button" className="outline-action" onClick={closeServingsModal} disabled={isSavingServings}>
+                  Annuler
+                </button>
+                <button type="submit" className="primary-action" disabled={isSavingServings}>
+                  {isSavingServings ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </section>
   );
