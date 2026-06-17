@@ -83,6 +83,13 @@ export async function getMyRecipes(token: string) {
   });
 }
 
+export async function getRecipe(id: string, source?: Recipe["source"], token?: string) {
+  const params = source ? `?source=${encodeURIComponent(source)}` : "";
+  return request<Recipe>(`/recipes/${encodeURIComponent(id)}${params}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+}
+
 export type RecipePayload = {
   title: string;
   image?: string;

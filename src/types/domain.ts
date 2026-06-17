@@ -30,6 +30,8 @@ export type Recipe = {
     fat: number;
   };
   ingredients: RecipeIngredient[];
+  instructions?: string[];
+  requiredEquipments?: string[];
 };
 
 export type RecipeSuggestionGroups = {

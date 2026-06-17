@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Apple, ChefHat, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, Moon, Pencil, Sun, Trash2, X } from "lucide-react";
+import { Apple, BookOpen, ChefHat, ChevronLeft, ChevronRight, CircleAlert, Coffee, Loader2, MoreHorizontal, Moon, Pencil, Sun, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { deleteMealPlan, getApiErrorMessage, getMealPlans, getProfile, readAuthToken, updateMealPlan } from "@/lib/api";
 import type { MealPlan, MealPlanDay, MealPlanRecipe, MealType, UserProfile } from "@/types/domain";
 
@@ -119,16 +120,24 @@ function CookingModeModal({ plan, onClose }: { plan: MealPlan; onClose: () => vo
 
 function MealSlot({
   plan,
+  openMenuId,
+  onToggleMenu,
   onCook,
+  onViewRecipe,
   onDelete,
   onUpdateServings
 }: {
   plan?: MealPlan;
+  openMenuId: string | null;
+  onToggleMenu: (plan: MealPlan) => void;
   onCook: (plan: MealPlan) => void;
+  onViewRecipe: (plan: MealPlan) => void;
   onDelete: (plan: MealPlan) => void;
   onUpdateServings: (plan: MealPlan) => void;
 }) {
   if (!plan) return <article className="meal-slot meal-slot-empty">Disponible</article>;
+
+  const isMenuOpen = openMenuId === plan._id;
 
   return (
     <article className="meal-slot planned-slot">
@@ -138,15 +147,17 @@ function MealSlot({
       <span>{plan.recipe?.calories || 0} kcal</span>
       <span>{plan.servings} portions</span>
       <div className="meal-actions">
-        <button type="button" aria-label="Cuisiner" onClick={() => onCook(plan)}>
-          <ChefHat size={15} />
+        <button type="button" aria-label="Actions du repas" aria-expanded={isMenuOpen} onClick={() => onToggleMenu(plan)}>
+          <MoreHorizontal size={16} />
         </button>
-        <button type="button" aria-label="Modifier les portions" onClick={() => onUpdateServings(plan)}>
-          <Pencil size={15} />
-        </button>
-        <button type="button" aria-label="Supprimer le repas" onClick={() => onDelete(plan)}>
-          <Trash2 size={15} />
-        </button>
+        {isMenuOpen && (
+          <div className="meal-actions-menu">
+            <button type="button" onClick={() => onCook(plan)}><ChefHat size={15} /> Cuisiner</button>
+            <button type="button" onClick={() => onViewRecipe(plan)}><BookOpen size={15} /> Voir la recette</button>
+            <button type="button" onClick={() => onUpdateServings(plan)}><Pencil size={15} /> Modifier les portions</button>
+            <button type="button" onClick={() => onDelete(plan)}><Trash2 size={15} /> Supprimer du planning</button>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -159,10 +170,12 @@ type MealPlannerProps = {
 };
 
 export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekStartChange }: MealPlannerProps) {
+  const router = useRouter();
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [internalWeekStart, setInternalWeekStart] = useState(() => getMonday());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-token" | "error">("loading");
   const [error, setError] = useState("");
@@ -224,6 +237,7 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
     try {
       await deleteMealPlan(token, plan._id);
       setPlans((items) => items.filter((item) => item._id !== plan._id));
+      setOpenMenuId(null);
       onChanged?.();
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible de supprimer ce repas."));
@@ -239,11 +253,28 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
     try {
       const updated = await updateMealPlan(token, plan._id, { servings: Number(value) });
       setPlans((items) => items.map((item) => (item._id === updated._id ? updated : item)));
+      setOpenMenuId(null);
       onChanged?.();
     } catch (caughtError) {
       setError(getApiErrorMessage(caughtError, "Impossible de modifier les portions."));
       setStatus("error");
     }
+  }
+
+  function handleToggleMenu(plan: MealPlan) {
+    setOpenMenuId((current) => (current === plan._id ? null : plan._id));
+  }
+
+  function handleCook(plan: MealPlan) {
+    setOpenMenuId(null);
+    setSelectedPlan(plan);
+  }
+
+  function handleViewRecipe(plan: MealPlan) {
+    const recipeId = plan.recipe?.id || plan.recipeId;
+    if (!recipeId) return;
+    setOpenMenuId(null);
+    router.push(`/recipes/${encodeURIComponent(recipeId)}?source=${encodeURIComponent(plan.recipeSource)}`);
   }
 
   return (
@@ -286,7 +317,10 @@ export function MealPlanner({ onChanged, weekStart: controlledWeekStart, onWeekS
                     <MealSlot
                       key={planKey(day, meal.key)}
                       plan={planMap[planKey(day, meal.key)]}
-                      onCook={setSelectedPlan}
+                      openMenuId={openMenuId}
+                      onToggleMenu={handleToggleMenu}
+                      onCook={handleCook}
+                      onViewRecipe={handleViewRecipe}
                       onDelete={handleDelete}
                       onUpdateServings={handleUpdateServings}
                     />
