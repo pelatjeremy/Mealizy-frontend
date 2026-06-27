@@ -6,9 +6,6 @@ export type RecipeIngredient = {
   quantity: number;
   unit: string;
   category: string;
-  requiredQuantity?: number;
-  availableQuantity?: number;
-  isAvailable?: boolean;
 };
 
 export type Recipe = {
@@ -20,9 +17,11 @@ export type Recipe = {
   image?: string;
   preparationTime: number;
   servings: number;
+  score?: number;
+  coverage?: number;
+  availableIngredientCount?: number;
   missingCount?: number;
   missingIngredients?: RecipeIngredient[];
-  availableIngredients?: RecipeIngredient[];
   nutrition: {
     calories: number;
     protein: number;
@@ -32,22 +31,38 @@ export type Recipe = {
   ingredients: RecipeIngredient[];
   instructions?: string[];
   requiredEquipments?: string[];
+  categories?: string[];
+  diets?: string[];
 };
 
-export type RecipeSuggestionGroups = {
-  complete: Recipe[];
-  missing1: Recipe[];
-  missing2: Recipe[];
-  missing3: Recipe[];
-  missingMore: Recipe[];
+export type RecipeCatalogSource = "mine" | "mealizy" | "api" | "all";
+
+export type RecipeCatalogResponse = {
+  items: Recipe[];
+  total: number;
+  page: number;
+  limit: number;
+  source: RecipeCatalogSource;
+  fallback?: {
+    active: boolean;
+    source: "mealizy";
+    reason: "quota_exceeded" | "invalid_key" | "network_error" | "unexpected_format" | "bad_request" | "spoonacular_unavailable" | "unknown";
+    spoonacularStatus: number | null;
+    message: string;
+  };
 };
 
 export type InventoryItem = {
-  id: string;
-  name: string;
+  id?: string;
+  _id?: string;
+  name?: string;
+  ingredientId?: {
+    name?: string;
+    category?: string;
+  };
   quantity: number;
   unit: string;
-  category: string;
+  category?: string;
   expirationDate?: string;
 };
 
@@ -77,9 +92,6 @@ export type UserProfile = {
   email: string;
   householdSize?: number;
   enabledMealTypes: MealType[];
-  availableEquipments?: string[];
-  dietaryPreferences?: string[];
-  allergies?: string[];
 };
 
 export type MealPlanDay =
@@ -99,9 +111,6 @@ export type MealPlanRecipe = {
   preparationTime: number;
   calories: number;
   servings: number;
-  ingredients?: RecipeIngredient[];
-  instructions?: string[];
-  nutrition?: Recipe["nutrition"];
 };
 
 export type MealPlan = {

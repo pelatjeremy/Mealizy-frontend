@@ -49,7 +49,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         setUser(null);
         setIsCheckingSession(false);
         if (!isPublic) {
-          router.replace("/login?expired=1");
+          router.replace("/login");
         }
       }
     }

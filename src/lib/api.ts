@@ -1,32 +1,9 @@
-import type { InventoryItem, MealPlan, MealPlanDay, MealType, Recipe, RecipeIngredient, RecipeSuggestionGroups, ShoppingList, UserProfile } from "@/types/domain";
+import type { InventoryItem, MealPlan, MealPlanDay, MealType, Recipe, RecipeCatalogResponse, RecipeCatalogSource, ShoppingList, UserProfile } from "@/types/domain";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export class ApiError extends Error {
-  status: number;
-  details?: unknown;
-
-  constructor(message: string, status: number, details?: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.details = details;
-  }
-}
-
 export function getApiErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-async function readResponsePayload(response: Response) {
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -34,79 +11,68 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error("NEXT_PUBLIC_API_URL is required");
   }
 
+  const apiUrl = new URL(API_URL);
+  const apiPath = apiUrl.pathname.endsWith("/") ? apiUrl.pathname.slice(0, -1) : apiUrl.pathname;
+  const requestPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(`${apiPath}${requestPath}`, apiUrl.origin);
+  apiUrl.searchParams.forEach((value, key) => url.searchParams.set(key, value));
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(url.toString(), {
       ...init,
       headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
       signal: controller.signal,
       cache: "no-store"
     });
-    if (response.status === 204) return undefined as T;
-
-    const payload = await readResponsePayload(response);
-
     if (!response.ok) {
-      const backendMessage = typeof payload?.message === "string" ? payload.message : "";
-      const message = response.status === 401 ? "Session expirée. Merci de vous reconnecter." : backendMessage || `Erreur API (${response.status})`;
-
-      if (response.status === 401 && typeof window !== "undefined") {
-        clearAuthToken();
-      }
-
-      throw new ApiError(message, response.status, payload?.details);
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.message || `API request failed (${response.status})`);
     }
-
-    return payload as T;
+    if (response.status === 204) return undefined as T;
+    return response.json();
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function getRecipeSuggestions(token: string) {
-  return request<RecipeSuggestionGroups>("/recipes/suggestions", {
+export async function getRecipeSuggestions(token: string, params: Record<string, string | number | undefined> = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && String(value).trim() !== "") query.set(key, String(value));
+  });
+
+  return request<Recipe[]>(`/recipes/suggestions?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
 
-export async function searchRecipes(query: string, token?: string) {
-  return request<Recipe[]>(`/recipes/search?q=${encodeURIComponent(query)}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+export async function getRecipeCatalog(token: string, params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && String(value).trim() !== "") query.set(key, String(value));
   });
-}
 
-export async function getMyRecipes(token: string) {
-  return request<Recipe[]>("/recipes/mine", {
+  return request<RecipeCatalogResponse>(`/recipes/catalog?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
 
-export async function getRecipe(id: string, source?: Recipe["source"], token?: string) {
-  const params = source ? `?source=${encodeURIComponent(source)}` : "";
-  return request<Recipe>(`/recipes/${encodeURIComponent(id)}${params}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-  });
-}
-
-export type RecipePayload = {
+export async function createRecipe(token: string, payload: {
   title: string;
   image?: string;
   preparationTime: number;
   servings: number;
-  nutrition: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
-  ingredients: RecipeIngredient[];
-  instructions?: string[];
-  requiredEquipments?: string[];
-};
-
-export async function createCustomRecipe(token: string, payload: RecipePayload) {
+  ingredients: Array<{
+    ingredientName: string;
+    quantity: number;
+    unit: string;
+    category: string;
+  }>;
+  instructions: string[];
+}) {
   return request<Recipe>("/recipes", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -114,18 +80,34 @@ export async function createCustomRecipe(token: string, payload: RecipePayload) 
   });
 }
 
-export async function updateCustomRecipe(token: string, id: string, payload: RecipePayload) {
-  return request<Recipe>(`/recipes/${id}`, {
+export async function updateRecipe(token: string, id: string, payload: {
+  title: string;
+  image?: string;
+  preparationTime: number;
+  servings: number;
+  ingredients: Array<{
+    ingredientName: string;
+    quantity: number;
+    unit: string;
+    category: string;
+  }>;
+  instructions: string[];
+}) {
+  return request<Recipe>(`/recipes/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload)
   });
 }
 
-export async function deleteCustomRecipe(token: string, id: string) {
-  await request<void>(`/recipes/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` }
+export function readCatalogSource(source: string): RecipeCatalogSource {
+  return source === "mine" || source === "mealizy" || source === "api" ? source : "all";
+}
+
+export async function getRecipe(id: string, source?: Recipe["source"], token?: string) {
+  const params = source ? `?source=${encodeURIComponent(source)}` : "";
+  return request<Recipe>(`/recipes/${encodeURIComponent(id)}${params}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
 }
 
@@ -162,89 +144,8 @@ export async function getProfile(token: string) {
   });
 }
 
-export type ProfilePayload = {
-  firstname: string;
-  lastname: string;
-  householdSize: number;
-  enabledMealTypes: MealType[];
-  availableEquipments: string[];
-  dietaryPreferences: string[];
-  allergies: string[];
-};
-
-export async function updateProfile(token: string, payload: ProfilePayload) {
-  return request<UserProfile>("/users/profile", {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload)
-  });
-}
-
-type InventoryApiItem = {
-  _id?: string;
-  id?: string;
-  name?: string;
-  quantity: number;
-  unit: string;
-  category?: string;
-  expirationDate?: string;
-  ingredientId?: {
-    name?: string;
-    category?: string;
-  };
-};
-
-export type InventoryPayload = {
-  name: string;
-  quantity: number;
-  unit: string;
-  category: string;
-  expirationDate?: string;
-};
-
-function normalizeInventoryItem(item: InventoryApiItem): InventoryItem {
-  return {
-    id: item.id || item._id || "",
-    name: item.name || item.ingredientId?.name || "Produit",
-    quantity: item.quantity,
-    unit: item.unit,
-    category: item.category || item.ingredientId?.category || "autres",
-    expirationDate: item.expirationDate
-  };
-}
-
-function normalizeInventory(items: InventoryApiItem[]): InventoryItem[] {
-  return items.map(normalizeInventoryItem);
-}
-
 export async function getInventory(token: string) {
-  const items = await request<InventoryApiItem[]>("/inventory", {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return normalizeInventory(items);
-}
-
-export async function createInventoryItem(token: string, payload: InventoryPayload) {
-  const item = await request<InventoryApiItem>("/inventory", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload)
-  });
-  return normalizeInventoryItem(item);
-}
-
-export async function updateInventoryItem(token: string, id: string, payload: InventoryPayload) {
-  const item = await request<InventoryApiItem>(`/inventory/${id}`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload)
-  });
-  return normalizeInventoryItem(item);
-}
-
-export async function deleteInventoryItem(token: string, id: string) {
-  await request<void>(`/inventory/${id}`, {
-    method: "DELETE",
+  return request<InventoryItem[]>("/inventory", {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
@@ -323,10 +224,11 @@ export async function updateShoppingListItemChecked(token: string, id: string, c
   return normalizeShoppingList(list);
 }
 
-export async function addShoppingListItemToInventory(token: string, id: string) {
-  const list = await request<ShoppingList>(`/shopping-list/items/${id}/add-to-inventory`, {
+export async function completeShoppingList(token: string, week: string) {
+  const list = await request<ShoppingList>("/shopping-list/complete", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ week })
   });
   return normalizeShoppingList(list);
 }

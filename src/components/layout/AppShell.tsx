@@ -11,7 +11,6 @@ import {
   Home,
   LogIn,
   LogOut,
-  Loader2,
   Package,
   Settings,
   ShoppingCart,
@@ -29,7 +28,7 @@ const privateNav = [
   { href: "/shopping-list", label: "Liste de courses", icon: ShoppingCart },
   { href: "/my-recipes", label: "Mes recettes", icon: Heart },
   { href: "/profile", label: "Profil", icon: UserRound },
-  { href: "/settings", label: "Paramètres", icon: Settings }
+  { href: "/settings", label: "Parametres", icon: Settings }
 ];
 
 const publicNav = [
@@ -73,7 +72,7 @@ export function AppShell({ children, isCheckingSession, onLogout, user }: AppShe
           {user && (
             <button className="nav-item nav-button" type="button" onClick={onLogout}>
               <LogOut size={20} />
-              <span>Déconnexion</span>
+              <span>Deconnexion</span>
             </button>
           )}
         </nav>
@@ -88,14 +87,7 @@ export function AppShell({ children, isCheckingSession, onLogout, user }: AppShe
           </div>
         )}
       </aside>
-      <div className="content">
-        {isCheckingSession ? (
-          <div className="session-loader" role="status" aria-live="polite">
-            <Loader2 size={24} />
-            <span>Vérification de la session...</span>
-          </div>
-        ) : children}
-      </div>
+      <div className="content">{isCheckingSession ? null : children}</div>
     </div>
   );
 }
